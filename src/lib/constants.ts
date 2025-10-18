@@ -79,25 +79,25 @@ export const AGENTS: Record<string, AgentMeta> = {
 }
 
 export const W_ENGINES: Record<string, WEngineMeta> = {
-  'Flight of Fancy': {
-    name: 'Flight of Fancy',
-    specialty: 'Support',
-    icon: resolveWEngineIcon('Flight of Fancy'),
-  },
   'Dreamlit Hearth': {
     name: 'Dreamlit Hearth',
-    specialty: 'Anomaly',
+    specialty: 'Support',
     icon: resolveWEngineIcon('Dreamlit Hearth'),
   },
-  'Roaring Fur-nace': {
-    name: 'Roaring Fur-nace',
-    specialty: 'Attack',
-    icon: resolveWEngineIcon('Roaring Fur-nace'),
+  'Flight of Fancy': {
+    name: 'Flight of Fancy',
+    specialty: 'Anomaly',
+    icon: resolveWEngineIcon('Flight of Fancy'),
   },
   'Kraken\'s Cradle': {
     name: 'Kraken\'s Cradle',
     specialty: 'Rupture',
     icon: UNKNOWN_ICON,
+  },
+  'Roaring Fur-nace': {
+    name: 'Roaring Fur-nace',
+    specialty: 'Stun',
+    icon: resolveWEngineIcon('Roaring Fur-nace'),
   },
 }
 
@@ -131,9 +131,7 @@ export function resolveSpecialtyIcon(spec?: Specialty): string {
   return spec ? (SPECIALTY_ICON[spec] ?? UNKNOWN_ICON) : UNKNOWN_ICON
 }
 
-// Active banner helpers – resilient to future versions/reruns
 function startOfDayUtc(dateStr: string): Date {
-  // dateStr expected as YYYY-MM-DD (ISO date without time)
   return new Date(`${dateStr}T00:00:00Z`)
 }
 
