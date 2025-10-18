@@ -88,8 +88,8 @@ assets/
 ### 1. Data Layer
 
 - [ ] Define types: `ChannelType = 'agent' | 'engine'`, `Banner`, `Target`, `DateRange`.
-- [ ] Create `src/data/banners.v23.ts` exporting the four Agent and four W-Engine banners listed above, including start/end dates and asset paths.
-- [ ] Implement image helper: resolve icon path by target name with fallback to `assets/Unknown.webp`.
+- [x] Create `src/data/banners.v23.ts` exporting the four Agent and four W-Engine banners listed above, including start/end dates and asset paths. (Implemented in `src/lib/constants.ts` as `BANNERS`.)
+- [x] Implement image helper: resolve icon path by target name with fallback to `assets/Unknown.webp`.
 - [ ] Persist per-account channel states (Agent, W-Engine): `{ pity: number; guaranteed: boolean; }` (carry across banners). No Standard channel state.
 
 ### 2. Probability Model (No Pity Bank)
@@ -103,7 +103,7 @@ assets/
 
 ### 3. Planning Engine (Two Phases, Priorities)
 
-- [ ] Inputs: phase budgets (P0 + I1 → Phase 1; carry + I2 → Phase 2), selected targets with type (Agent or W-Engine), priority order, “Stop on off-feature” vs “Continue” policy per Agent channel.
+- [x] Inputs: phase budgets (P0 + I1 → Phase 1; carry + I2 → Phase 2), selected targets with type (Agent or W-Engine), priority order, “Stop on off-feature” vs “Continue” policy per Agent channel. (Targets and priority integrated via `TargetPicker` and `stores/targets`.)
 - [ ] Replace N-based costs with quantile-selected costs per target using current pity/guarantee/channel.
 - [ ] Allocation policy:
   - [ ] Process targets in priority order across phases.
@@ -112,7 +112,7 @@ assets/
   - [ ] Update guarantee state after each simulated S per policy:
     - If off-feature and policy=Stop: spend ends, guarantee=true carries to next banner.
     - If off-feature and policy=Continue: add second T, guarantee consumed; update pity=0 afterwards.
-  - [ ] No partial spending and no pre-pull; either fully fund a target within a phase or defer.
+  - [x] No partial spending and no pre-pull; either fully fund a target within a phase or defer.
 - [ ] Outputs:
   - [ ] Per target: EV, p50/p90/p95/p99 cost and `Pr(within current phase budget)`.
   - [ ] Per phase: budget start/end, funded targets, success probability to hit plan, pulls remaining.
@@ -121,10 +121,11 @@ assets/
 ### 4. UI/UX
 
 - [ ] Target selection panel:
-  - [ ] List banners grouped by phase window with icons, names, and dates.
-  - [ ] Allow selecting specific targets (e.g., Lucia, Yidhari, Roaring Fur-nace, etc.).
+  - [x] List banners grouped by phase window with icons, names, and dates.
+  - [x] Allow selecting specific targets (e.g., Lucia, Yidhari, Roaring Fur-nace, etc.).
   - [ ] Drag-and-drop to set priority; mark targets as Must-have or Optional.
-  - [ ] For each channel, input current pity and guaranteed (Agent and W-Engine separately).
+  - [x] Drag-and-drop to set priority (reordering implemented).
+  - [x] For each channel, input current pity and guaranteed (Agent and W-Engine separately).
 - [ ] Risk configuration:
   - [ ] Replace Best/Expected/Worst with a Risk slider (p50 → p99), plus a separate EV info toggle.
   - [ ] Policy toggle: “Stop on off-feature” vs “Continue until featured”.
@@ -136,8 +137,8 @@ assets/
 
 ### 5. Assets Integration
 
-- [ ] Map Agent names → `assets/agents/*_Icon.webp` and W-Engine names → `assets/w-engines/*_Icon.webp`.
-- [ ] Use `assets/Unknown.webp` when a mapping is missing.
+- [x] Map Agent names → `assets/agents/*_Icon.webp` and W-Engine names → `assets/w-engines/*_Icon.webp`.
+- [x] Use `assets/Unknown.webp` when a mapping is missing.
 - [ ] Lazy-load images in lists; ensure crisp rendering on dark UI.
 
 ### 6. Documentation
@@ -154,7 +155,7 @@ assets/
 
 ### 8. Milestones
 
-- [ ] M1: Data scaffolding – types + banners + assets mapping.
+- [x] M1: Data scaffolding – types + banners + assets mapping.
 - [ ] M2: Probability engine – hazards, PMF/CMF, EV/quantiles, mixtures.
 - [ ] M3: Planner engine – priority allocation, policies, outputs.
 - [ ] M4: UI – selection, risk slider, visuals, copy cleanup.
