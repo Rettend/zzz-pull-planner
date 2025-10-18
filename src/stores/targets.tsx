@@ -10,7 +10,6 @@ export interface SelectedTarget {
   name: string
   channel: ChannelType
   priority: number
-  mustHave: boolean
 }
 
 interface TargetsLocalState {
@@ -18,10 +17,9 @@ interface TargetsLocalState {
 }
 
 type StoreContextType = [Store<TargetsLocalState>, {
-  add: (t: { name: string, channel: ChannelType, mustHave?: boolean }) => void
+  add: (t: { name: string, channel: ChannelType }) => void
   remove: (name: string) => void
   setPriority: (name: string, priority: number) => void
-  toggleMustHave: (name: string) => void
   reorder: (fromIndex: number, toIndex: number) => void
   clear: () => void
 }]
@@ -44,19 +42,16 @@ export function TargetsStoreProvider(props: ParentProps) {
   }
 
   const actions = {
-    add: ({ name, channel, mustHave }: { name: string, channel: ChannelType, mustHave?: boolean }) => {
+    add: ({ name, channel }: { name: string, channel: ChannelType }) => {
       if (local.selected.some(s => s.name === name))
         return
-      setLocal('selected', s => [...s, { name, channel, priority: nextPriority(), mustHave: Boolean(mustHave) }])
+      setLocal('selected', s => [...s, { name, channel, priority: nextPriority() }])
     },
     remove: (name: string) => {
       setLocal('selected', s => s.filter(x => x.name !== name))
     },
     setPriority: (name: string, priority: number) => {
       setLocal('selected', x => x.name === name, 'priority', priority)
-    },
-    toggleMustHave: (name: string) => {
-      setLocal('selected', x => x.name === name, 'mustHave', v => !v)
     },
     reorder: (fromIndex: number, toIndex: number) => {
       setLocal('selected', (s) => {

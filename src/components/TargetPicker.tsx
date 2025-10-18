@@ -1,14 +1,30 @@
 import type { Component } from 'solid-js'
 import { createMemo, createSignal, For, Show } from 'solid-js'
 import { BANNERS, isBannerPast } from '~/lib/constants'
+import { computeTwoPhasePlan, emptyPlan } from '~/lib/planner'
 import { useTargetsStore } from '~/stores/targets'
+import { useUIStore } from '~/stores/ui'
 import { TargetIconCard } from './TargetIconCard'
 
 export const TargetPicker: Component = () => {
   const [targets, actions] = useTargetsStore()
+  const [ui] = useUIStore()
+
+  const inputs = () => ui.local.plannerInputs
+  const scenario = () => ui.local.scenario
 
   const ranges = createMemo(() => [...new Set(BANNERS.filter(b => !isBannerPast(b)).map(b => `${b.start} → ${b.end}`))])
   const selectedSorted = createMemo(() => [...targets.selected].sort((a, b) => a.priority - b.priority))
+  const selectedTargetsInput = createMemo(() => selectedSorted().map(t => ({ name: t.name, channel: t.channel })))
+  const plan = createMemo(() => {
+    try {
+      return computeTwoPhasePlan(inputs(), scenario(), selectedTargetsInput())
+    }
+    catch {
+      return emptyPlan()
+    }
+  })
+  const fundedSet = createMemo(() => new Set(plan().fundedTargets))
   const isSelected = (name: string) => targets.selected.some(s => s.name === name)
 
   const [dragIndex, setDragIndex] = createSignal<number | null>(null)
@@ -122,7 +138,7 @@ export const TargetPicker: Component = () => {
                         : actions.add({ name: b.featured, channel: b.type })}
                       title={`${b.title} (${b.start} → ${b.end})`}
                     >
-                      <TargetIconCard name={b.featured} context="selector" selected={isSelected(b.featured)} muted={!isSelected(b.featured)} />
+                      <TargetIconCard name={b.featured} context="selector" selected={isSelected(b.featured)} muted={!isSelected(b.featured)} notMet={isSelected(b.featured) && !fundedSet().has(b.featured)} />
                     </button>
                   )}
                 </For>

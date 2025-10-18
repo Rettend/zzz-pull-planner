@@ -9,6 +9,7 @@ export const TargetIconCard: Component<{
   onRemove?: () => void
   context?: 'selector' | 'selected'
   selected?: boolean
+  notMet?: boolean
 }> = (props) => {
   const agent = createMemo(() => resolveAgent(props.name))
   const wengine = createMemo(() => resolveWEngine(props.name))
@@ -17,7 +18,12 @@ export const TargetIconCard: Component<{
   const bg = createMemo(() => agent()?.icon ?? wengine()?.icon)
   const attrIcon = createMemo(() => agent() ? resolveAttributeIcon(agent()!.attribute) : undefined)
   const specIcon = createMemo(() => resolveSpecialtyIcon((agent() ?? wengine())?.specialty))
-  const borderClass = createMemo(() => (props.context === 'selector' && props.selected) ? 'border-emerald-500' : 'border-zinc-700')
+  const borderClass = createMemo(() => {
+    if (props.context === 'selector' && props.selected) {
+      return props.notMet ? 'border-red-500' : 'border-emerald-500'
+    }
+    return 'border-zinc-700'
+  })
   const cursorClass = createMemo(() => props.context === 'selector' ? 'cursor-pointer' : (props.muted ? 'hover:border-emerald-500/70' : 'cursor-grab'))
 
   return (
@@ -53,7 +59,7 @@ export const TargetIconCard: Component<{
             props.onRemove?.()
           }}
         >
-          <i class="i-ph-x-bold text-zinc-200 size-4" />
+          <i class="i-ph:x-bold text-zinc-200 size-4" />
         </button>
       </Show>
     </div>

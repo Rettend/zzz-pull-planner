@@ -11,12 +11,12 @@ function pct(n: number, d: number): string {
 export function Badge(props: { ok?: boolean, label: string, title?: string }) {
   return (
     <span
-      class={`text-xs px-2 py-0.5 border rounded inline-flex gap-1 items-center ${props.ok === false
+      class={`text-xs px-2 py-0.5 border rounded inline-flex gap-2 items-center ${props.ok === false
         ? 'text-red-300 border-red-500/60 bg-red-500/10'
         : props.ok ? 'text-emerald-300 border-emerald-500/60 bg-emerald-500/10' : 'text-zinc-300 border-zinc-600 bg-zinc-700/30'}`}
       title={props.title}
     >
-      <i class={`i-ph-${props.ok === false ? 'warning-circle' : props.ok ? 'check-circle' : 'info'}-duotone`} />
+      <i class={`size-4 ${props.ok === false ? 'i-ph:warning-circle-duotone' : props.ok ? 'i-ph:check-circle-duotone' : 'i-ph:info-duotone'}`} />
       {props.label}
     </span>
   )
