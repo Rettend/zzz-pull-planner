@@ -19,27 +19,56 @@ export const TargetPicker: Component = () => {
   const ROW_GROUP_TOLERANCE_PX = 40
   const ROW_HYSTERESIS_PX = 16
 
+  // Drag-derived helpers
+  const [dragActive, setDragActive] = createSignal(false)
+  const dragging = createMemo(() => dragIndex() != null)
+  const normalizedInsert = createMemo(() => {
+    const d = dragIndex()
+    const ins = insertIndex()
+    if (d == null || ins == null)
+      return null
+    return ins > d ? ins - 1 : ins
+  })
+  const nonDraggedCount = createMemo(() => {
+    const d = dragIndex()
+    const n = selectedSorted().length
+    return d == null ? n : Math.max(0, n - 1)
+  })
+
   function onDragStart(e: DragEvent, index: number) {
-    setDragIndex(index)
     if (e.dataTransfer) {
       e.dataTransfer.effectAllowed = 'move'
       e.dataTransfer.setData('text/plain', String(index))
       e.dataTransfer.setDragImage((e.currentTarget as HTMLElement), 50, 50)
     }
+    // Delay state change to the next frame to avoid cancelling native drag
+    requestAnimationFrame(() => {
+      setDragIndex(index)
+      // insertIndex will be computed from pointer on first dragover
+      setInsertIndex(null as unknown as number)
+    })
   }
 
   function onDragEnd() {
     setDragIndex(null)
     setInsertIndex(null)
     setCurrentRowIdx(null)
+    setDragActive(false)
   }
 
   // Compute insertion index from pointer position relative to card centers (container-level)
   function updateInsertFromPointer(e: DragEvent) {
     if (dragIndex() == null)
       return
-    const cards = cardEls.filter(Boolean)
-    const total = cards.length
+    const elements = cardEls.filter(Boolean)
+    const allRects = elements.map(el => el.getBoundingClientRect())
+    // Exclude zero-sized (hidden/collapsed) items such as the dragged one
+    const dIdx = dragIndex() ?? -1
+    const indexed = allRects
+      .map((r, i) => ({ i, r }))
+      .filter(x => x.i !== dIdx)
+      .filter(x => x.r.width > 0 && x.r.height > 0)
+    const total = indexed.length
     if (!total) {
       setInsertIndex(0)
       return
@@ -47,10 +76,7 @@ export const TargetPicker: Component = () => {
     const px = e.clientX
     const py = e.clientY
 
-    const rects = cards.map(el => el.getBoundingClientRect())
-
     // Group cards into visual rows by their top coordinate
-    const indexed = rects.map((r, i) => ({ i, r }))
     indexed.sort((a, b) => (a.r.top - b.r.top) || (a.r.left - b.r.left))
     const rows: { indices: number[], top: number, bottom: number, centerY: number }[] = []
     for (const item of indexed) {
@@ -78,7 +104,7 @@ export const TargetPicker: Component = () => {
       }
     }
     const prevRow = currentRowIdx()
-    if (prevRow != null) {
+    if (prevRow != null && prevRow >= 0 && prevRow < rows.length) {
       const dyPrev = Math.abs(py - rows[prevRow].centerY)
       if (bestRow !== prevRow && dyPrev <= ROW_HYSTERESIS_PX)
         bestRow = prevRow
@@ -88,7 +114,7 @@ export const TargetPicker: Component = () => {
     // Within the chosen row, find slot by comparing against card centers
     const rowIndices = rows[bestRow].indices
     const centers = rowIndices.map((idx) => {
-      const r = rects[idx]
+      const r = allRects[idx]
       return r.left + r.width / 2
     })
 
@@ -101,14 +127,21 @@ export const TargetPicker: Component = () => {
     for (let r = 0; r < bestRow; r++)
       beforeCount += rows[r].indices.length
 
-    const target = Math.max(0, Math.min(total, beforeCount + within))
-    setInsertIndex(target)
+    const targetBase = Math.max(0, Math.min(total, beforeCount + within))
+    // Convert from "list without dragged item" to pre-removal slot index
+    const from = dragIndex()!
+    const origCount = selectedSorted().length
+    const preRemoval = targetBase >= from ? targetBase + 1 : targetBase
+    const clampedPreRemoval = Math.max(0, Math.min(origCount, preRemoval))
+    setInsertIndex(clampedPreRemoval)
   }
 
   function onSelectedDragOver(e: DragEvent) {
     e.preventDefault()
     if (e.dataTransfer)
       e.dataTransfer.dropEffect = 'move'
+    if (dragIndex() != null && !dragActive())
+      setDragActive(true)
     updateInsertFromPointer(e)
   }
 
@@ -123,28 +156,14 @@ export const TargetPicker: Component = () => {
     setDragIndex(null)
     setInsertIndex(null)
     setCurrentRowIdx(null)
+    setDragActive(false)
   }
 
-  // Dedicated drop slot – visual only, ghost placeholder
-  function DropSlot(props: { index: number }) {
-    const show = createMemo(() => {
-      const d = dragIndex()
-      const ins = insertIndex()
-      if (d == null || ins == null)
-        return false
-      if (ins === d || ins === d + 1)
-        return false // hide when drop would be a no-op
-      return ins === props.index
-    })
+  // Legacy DropSlot removed; we now render a single GhostPlaceholder at the target insert index
+
+  function GhostPlaceholder() {
     return (
-      <div
-        class="h-100px inline-block transition-all duration-150 ease-out relative"
-        classList={{ 'w-100px': show(), 'w-3': !show() }}
-      >
-        <Show when={show()}>
-          <div aria-hidden="true" class="border-2 border-zinc-700/40 rounded-xl bg-transparent opacity-100 h-100px w-100px pointer-events-none scale-100 transition-all duration-150 ease-out left-1/2 top-0 absolute -translate-x-1/2" />
-        </Show>
-      </div>
+      <div aria-hidden="true" class="border-2 border-zinc-700/40 rounded-xl bg-transparent opacity-100 h-100px w-100px pointer-events-none" />
     )
   }
 
@@ -184,27 +203,53 @@ export const TargetPicker: Component = () => {
           onDragOver={e => onSelectedDragOver(e as unknown as DragEvent)}
           onDrop={e => onSelectedDrop(e as unknown as DragEvent)}
         >
-          <DropSlot index={0} />
           <For each={selectedSorted()}>
-            {(t, i) => (
-              <>
-                <div
-                  class="relative"
-                  draggable
-                  onDragStart={e => onDragStart(e as unknown as DragEvent, i())}
-                  onDragEnd={onDragEnd}
-                  ref={(el) => { cardEls[i()] = el as unknown as HTMLElement }}
-                >
-                  <TargetIconCard
-                    name={t.name}
-                    removable
-                    onRemove={() => actions.remove(t.name)}
-                  />
-                </div>
-                <DropSlot index={i() + 1} />
-              </>
-            )}
+            {(t, i) => {
+              const beforeIndex = () => {
+                const d = dragIndex()
+                const ii = i()
+                return d != null && ii > d ? ii - 1 : ii
+              }
+              const isDragged = () => dragIndex() === i()
+              const showBefore = () => {
+                if (!dragging())
+                  return false
+                const ni = normalizedInsert()
+                const d = dragIndex()
+                if (ni == null || d == null)
+                  return false
+                if (ni === d)
+                  return i() === d
+                return ni === beforeIndex()
+              }
+              return (
+                <>
+                  <Show when={showBefore()}>
+                    <GhostPlaceholder />
+                  </Show>
+
+                  <div
+                    class="relative"
+                    draggable
+                    onDragStart={e => onDragStart(e as unknown as DragEvent, i())}
+                    onDragEnd={onDragEnd}
+                    ref={(el) => { cardEls[i()] = el as unknown as HTMLElement }}
+                    style={{ display: isDragged() && dragActive() ? 'none' : undefined }}
+                  >
+                    <TargetIconCard
+                      name={t.name}
+                      removable
+                      onRemove={() => actions.remove(t.name)}
+                    />
+                  </div>
+                </>
+              )
+            }}
           </For>
+
+          <Show when={dragging() && normalizedInsert() === nonDraggedCount() && normalizedInsert() !== dragIndex()}>
+            <GhostPlaceholder />
+          </Show>
         </div>
       </div>
     </div>
