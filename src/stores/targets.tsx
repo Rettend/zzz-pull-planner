@@ -61,12 +61,13 @@ export function TargetsStoreProvider(props: ParentProps) {
     reorder: (fromIndex: number, toIndex: number) => {
       setLocal('selected', (s) => {
         const arr = [...s].sort((a, b) => a.priority - b.priority)
-        const safeFrom = Math.max(0, Math.min(arr.length - 1, fromIndex))
+        const originalLen = arr.length
+        const safeFrom = Math.max(0, Math.min(originalLen - 1, fromIndex))
         const [moved] = arr.splice(safeFrom, 1)
-        // After removal, if we insert past the original index, shift left by 1
-        let insertAt = Math.max(0, Math.min(arr.length, toIndex))
-        if (insertAt > safeFrom)
-          insertAt -= 1
+        // Clamp target to original bounds (allow inserting at end = originalLen)
+        const clampedTarget = Math.max(0, Math.min(originalLen, toIndex))
+        // After removal, if target was after the removed index, shift left by 1
+        const insertAt = clampedTarget > safeFrom ? clampedTarget - 1 : clampedTarget
         arr.splice(insertAt, 0, moved)
         // reassign priorities 1..n
         return arr.map((item, i) => ({ ...item, priority: i + 1 }))

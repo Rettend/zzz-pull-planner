@@ -127,7 +127,15 @@ export const TargetPicker: Component = () => {
 
   // Dedicated drop slot – visual only, ghost placeholder
   function DropSlot(props: { index: number }) {
-    const show = createMemo(() => dragIndex() !== null && insertIndex() === props.index)
+    const show = createMemo(() => {
+      const d = dragIndex()
+      const ins = insertIndex()
+      if (d == null || ins == null)
+        return false
+      if (ins === d || ins === d + 1)
+        return false // hide when drop would be a no-op
+      return ins === props.index
+    })
     return (
       <div
         class="h-100px inline-block transition-all duration-150 ease-out relative"

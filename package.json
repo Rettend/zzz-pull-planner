@@ -11,17 +11,14 @@
     "dev": "vinxi dev --port 3101",
     "build": "bun --bun vinxi build",
     "preview": "vinxi start",
-    "check": "tsgo --noEmit --skipLibCheck",
-    "lint": "eslint . --fix",
-    "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "check": "tsgo --noEmit --skipLibCheck -p tsconfig.json",
+    "lint": "eslint . --fix"
   },
   "dependencies": {
     "@solid-primitives/storage": "^4.3.3",
     "@solidjs/router": "^0.15.3",
     "@solidjs/start": "^1.1.7",
     "@typescript/native-preview": "^7.0.0-dev.20251016.1",
-    "drizzle-orm": "^0.44.5",
     "solid-js": "^1.9.9",
     "uuid": "^12.0.0",
     "vinxi": "^0.5.8"
@@ -32,7 +29,6 @@
     "@types/node": "^24.3.1",
     "@unocss/eslint-plugin": "^66.5.3",
     "@unocss/preset-icons": "^66.5.0",
-    "drizzle-kit": "^0.31.4",
     "eslint": "^9.37.0",
     "eslint-plugin-solid": "^0.14.5",
     "unocss": "^66.5.0",
