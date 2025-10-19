@@ -2,7 +2,7 @@ import type { ParentProps } from 'solid-js'
 import type { Store } from 'solid-js/store'
 import type { PlannerInputs, Scenario } from '~/lib/planner'
 import { makePersisted, storageSync } from '@solid-primitives/storage'
-import { createContext, useContext } from 'solid-js'
+import { createContext, untrack, useContext } from 'solid-js'
 import { createStore } from 'solid-js/store'
 
 interface UIState {
@@ -30,7 +30,7 @@ interface UIStoreActions {
 type StoreContextType = [Store<UIState>, Store<UILocalState>, UIStoreActions]
 const StoreContext = createContext<StoreContextType>()
 
-export function UIStoreProvider(props: ParentProps) {
+export function UIStoreProvider(props: ParentProps<{ accountId: string }>) {
   const [state, _setState] = createStore<UIState>({
   })
 
@@ -52,8 +52,9 @@ export function UIStoreProvider(props: ParentProps) {
     phase1Timing: 'end',
     phase2Timing: 'end',
   })
+  const storageKey = untrack(() => `ui:${props.accountId}`)
   const [local, setLocal] = makePersisted([baseLocal, setBaseLocal], {
-    name: 'ui',
+    name: storageKey,
     storage: window.localStorage,
     sync: storageSync,
   })

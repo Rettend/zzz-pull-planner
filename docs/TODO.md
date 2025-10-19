@@ -1,5 +1,12 @@
 # Pull Planner Overhaul – Version 2.3 (Real Pity, No Bank, Hardcoded Banners)
 
+## FIX
+
+- mindscape support with nice ui, maybe small + - buttons for targets
+- perf fix: accounts without unmounting?
+
+## Overview
+
 This plan replaces the simplified N=60 model with a probability-accurate planner for ZZZ’s limited banners, removes any notion of “pity banking,” ignores the standard channel and A-ranks, hardcodes current 2.3 banners, and enables selecting exact targets with priorities.
 
 ## Scope & Assumptions

@@ -2,7 +2,7 @@ import type { ParentProps } from 'solid-js'
 import type { Store } from 'solid-js/store'
 import type { Banner, ChannelType } from '~/lib/constants'
 import { makePersisted, storageSync } from '@solid-primitives/storage'
-import { createContext, useContext } from 'solid-js'
+import { createContext, untrack, useContext } from 'solid-js'
 import { createStore } from 'solid-js/store'
 import { BANNERS } from '~/lib/constants'
 
@@ -26,14 +26,15 @@ type StoreContextType = [Store<TargetsLocalState>, {
 
 const StoreContext = createContext<StoreContextType>()
 
-export function TargetsStoreProvider(props: ParentProps) {
+export function TargetsStoreProvider(props: ParentProps & { accountId: string }) {
   const [baseLocal, setBaseLocal] = createStore<TargetsLocalState>({
     selected: [],
   })
 
+  const storageKey = untrack(() => `targets:${props.accountId}`)
   const [local, setLocal] = makePersisted([baseLocal, setBaseLocal], {
-    name: 'targets',
-    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+    name: storageKey,
+    storage: window.localStorage,
     sync: storageSync,
   })
 
