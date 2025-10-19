@@ -34,7 +34,7 @@ export function BudgetBar(props: {
             <div
               class={s.color}
               style={{ width: pct(s.value, props.total) }}
-              title={`${s.label}: ${s.value}${props.total ? ` (${pct(s.value, props.total)})` : ''}`}
+              title={`${s.label}: ${Math.round(s.value)}${props.total ? ` (${pct(s.value, props.total)})` : ''}`}
             />
           )}
         </For>
@@ -83,8 +83,8 @@ export function CheckboxField(props: {
   onChange: (e: Event & { currentTarget: HTMLInputElement }) => void
 }) {
   return (
-    <label class="flex gap-2 items-end">
-      <input type="checkbox" class="accent-emerald-400" checked={props.checked} onChange={e => props.onChange(e)} />
+    <label class="flex gap-2 items-center">
+      <input type="checkbox" class="accent-emerald-400 size-4" checked={props.checked} onChange={e => props.onChange(e)} />
       <span class="text-xs text-zinc-400">{props.label}</span>
     </label>
   )
@@ -97,6 +97,7 @@ export function StatRow(props: {
   title?: string
   trailing?: JSX.Element
   explain?: JSX.Element | string
+  valueOk?: boolean
 }) {
   return (
     <li title={props.title} class="contents">
@@ -107,7 +108,7 @@ export function StatRow(props: {
       <div class="text-right whitespace-nowrap">
         {props.value !== undefined
           ? (
-              <span class="text-emerald-300">{props.value}</span>
+              <span class={`${props.valueOk === false ? 'text-red-300' : 'text-emerald-300'}`}>{typeof props.value === 'number' ? Math.round(props.value) : props.value}</span>
             )
           : null}
       </div>
@@ -126,14 +127,14 @@ export function StatRow(props: {
 }
 
 export type NumberKeys = {
-  [K in keyof PlannerInputs]: PlannerInputs[K] extends number ? K : never
+  [K in keyof PlannerInputs]-?: PlannerInputs[K] extends number ? K : never
 }[keyof PlannerInputs]
 
 export type BoolKeys = {
-  [K in keyof PlannerInputs]: PlannerInputs[K] extends boolean ? K : never
+  [K in keyof PlannerInputs]-?: PlannerInputs[K] extends boolean ? K : never
 }[keyof PlannerInputs]
 
-export function numberInput<K extends NumberKeys>(
+export function numberInput<K extends NumberKeys & keyof PlannerInputs>(
   inputs: () => PlannerInputs,
   setPlannerInput: (key: K, value: PlannerInputs[K]) => void,
   key: K,
@@ -148,7 +149,7 @@ export function numberInput<K extends NumberKeys>(
   }
 }
 
-export function boolInput<K extends BoolKeys>(
+export function boolInput<K extends BoolKeys & keyof PlannerInputs>(
   inputs: () => PlannerInputs,
   setPlannerInput: (key: K, value: PlannerInputs[K]) => void,
   key: K,

@@ -1,12 +1,11 @@
 import type { Banner, ChannelType } from '~/lib/constants'
 import { BANNERS } from '~/lib/constants'
+import { convolveDiscrete, costAtScenario, costStatsFromPmf, featuredCostPmf } from '~/lib/probability'
 
-export type Scenario = 'best' | 'expected' | 'worst'
+export type Scenario = 'p50' | 'p60' | 'p75' | 'p90' | 'ev'
 
 export interface PlannerInputs {
   N: number
-  qAgent: number
-  qEngine: number
   pullsOnHand: number
   incomePhase1: number
   incomePhase2: number
@@ -14,6 +13,7 @@ export interface PlannerInputs {
   guaranteedAgentStart: boolean
   pityEngineStart: number
   guaranteedEngineStart: boolean
+  luckMode?: 'best' | 'realistic' | 'worst'
 }
 
 export interface PhasePlan {
@@ -31,17 +31,28 @@ export interface PhasePlan {
     canAffordAgentEnd: boolean
     canAffordEngineStart: boolean
     canAffordEngineEnd: boolean
+    successProbStart?: number
+    successProbEnd?: number
+    shortfallStart?: number
+    shortfallEnd?: number
   }
   phase2: {
     agentCost: number
     engineCost: number
     enginePityStart: number
+    agentPityStart?: number
+    agentGuaranteedStart?: boolean
+    engineGuaranteedStart?: boolean
     canAffordAgent: boolean
     canAffordEngineAfterAgent: boolean
     startBudget: number
     endBudget: number
     canAffordAgentStart: boolean
     canAffordEngineAfterAgentStart: boolean
+    successProbStart?: number
+    successProbEnd?: number
+    shortfallStart?: number
+    shortfallEnd?: number
   }
   totals: {
     agentsGot: number
@@ -69,6 +80,8 @@ export function emptyPlan(): PhasePlan {
       canAffordAgentEnd: false,
       canAffordEngineStart: false,
       canAffordEngineEnd: false,
+      shortfallStart: 0,
+      shortfallEnd: 0,
     },
     phase2: {
       agentCost: 0,
@@ -80,6 +93,8 @@ export function emptyPlan(): PhasePlan {
       endBudget: 0,
       canAffordAgentStart: false,
       canAffordEngineAfterAgentStart: false,
+      shortfallStart: 0,
+      shortfallEnd: 0,
     },
     totals: { agentsGot: 0, enginesGot: 0, pullsLeftEnd: 0 },
     fundedTargets: [],
@@ -92,38 +107,26 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value))
 }
 
-function gap(N: number, pity: number): number {
-  return Math.max(0, N - pity)
-}
-
 export function costToFeaturedAgent(
-  N: number,
   pity: number,
   guaranteed: boolean,
   qAgent: number,
   scenario: Scenario,
 ): number {
-  const base = gap(N, pity)
-  if (scenario === 'best')
-    return base
-  if (scenario === 'worst')
-    return base + (guaranteed ? 0 : N)
-  return base + (guaranteed ? 0 : (1 - qAgent) * N)
+  const pmf = featuredCostPmf('agent', pity, guaranteed, qAgent)
+  const stats = costStatsFromPmf(pmf)
+  return costAtScenario(scenario, stats)
 }
 
 export function costToFeaturedEngine(
-  N: number,
   pity: number,
   guaranteed: boolean,
   qEngine: number,
   scenario: Scenario,
 ): number {
-  const base = gap(N, pity)
-  if (scenario === 'best')
-    return base
-  if (scenario === 'worst')
-    return base + (guaranteed ? 0 : N)
-  return base + (guaranteed ? 0 : (1 - qEngine) * N)
+  const pmf = featuredCostPmf('engine', pity, guaranteed, qEngine)
+  const stats = costStatsFromPmf(pmf)
+  return costAtScenario(scenario, stats)
 }
 
 interface SelectedTargetInput { name: string, channel: ChannelType }
@@ -148,9 +151,6 @@ export function computeTwoPhasePlan(
   selected: SelectedTargetInput[] = [],
 ): PhasePlan {
   const {
-    N,
-    qAgent,
-    qEngine,
     pullsOnHand,
     incomePhase1,
     incomePhase2,
@@ -158,7 +158,11 @@ export function computeTwoPhasePlan(
     guaranteedAgentStart,
     pityEngineStart,
     guaranteedEngineStart,
+    luckMode = 'realistic',
   } = inputs
+
+  const qAgent = luckMode === 'best' ? 1 : luckMode === 'worst' ? 0 : 0.5
+  const qEngine = luckMode === 'best' ? 1 : luckMode === 'worst' ? 0 : 0.75
 
   const ranges = computePhaseRanges()
   const phaseIndexByTarget: Record<string, 0 | 1> = {}
@@ -179,28 +183,39 @@ export function computeTwoPhasePlan(
   const phase1StartBudget = pullsOnHand
   const phase1EndBudget = pullsOnHand + incomePhase1
 
-  let agentPity = clamp(pityAgentStart, 0, N - 1)
+  let agentPity = clamp(pityAgentStart, 0, 89)
   let agentGuaranteed = Boolean(guaranteedAgentStart)
-  let enginePity = clamp(pityEngineStart, 0, N - 1)
+  let enginePity = clamp(pityEngineStart, 0, 79)
   let engineGuaranteed = Boolean(guaranteedEngineStart)
+
+  const globalIndexByName: Record<string, number> = {}
+  for (let i = 0; i < selected.length; i++) {
+    const t = selected[i]
+    if (globalIndexByName[t.name] === undefined)
+      globalIndexByName[t.name] = i
+  }
 
   function reserveForNextPhase(
     nextTargets: SelectedTargetInput[],
     currentAgentState: { pity: number, guaranteed: boolean },
     currentEngineState: { pity: number, guaranteed: boolean },
+    limitIndexExclusive: number = Number.POSITIVE_INFINITY,
   ): number {
     let reserve = 0
     const stAgent = { ...currentAgentState }
     const stEngine = { ...currentEngineState }
     for (const t of nextTargets) {
+      const gIdx = globalIndexByName[t.name]
+      if (gIdx === undefined || gIdx >= limitIndexExclusive)
+        continue
       if (t.channel === 'agent') {
-        const c = costToFeaturedAgent(N, stAgent.pity, stAgent.guaranteed, qAgent, scenario)
+        const c = costToFeaturedAgent(stAgent.pity, stAgent.guaranteed, qAgent, scenario)
         reserve += Math.max(0, c)
         stAgent.pity = 0
         stAgent.guaranteed = false
       }
       else {
-        const c = costToFeaturedEngine(N, stEngine.pity, stEngine.guaranteed, qEngine, scenario)
+        const c = costToFeaturedEngine(stEngine.pity, stEngine.guaranteed, qEngine, scenario)
         reserve += Math.max(0, c)
         stEngine.pity = 0
         stEngine.guaranteed = false
@@ -215,7 +230,7 @@ export function computeTwoPhasePlan(
     targetsInPhase: SelectedTargetInput[],
     agentStateIn: { pity: number, guaranteed: boolean },
     engineStateIn: { pity: number, guaranteed: boolean },
-    nextPhaseAgents: SelectedTargetInput[],
+    nextPhaseTargets: SelectedTargetInput[],
   ) {
     let remainingStart = startBudget
     let remainingEnd = endBudget
@@ -226,12 +241,14 @@ export function computeTwoPhasePlan(
     let boughtAgents = 0
     let boughtEngines = 0
     const boughtNames: string[] = []
+    let shortfallStart: number | undefined
+    let shortfallEnd: number | undefined
 
     for (const t of targetsInPhase) {
       const isAgent = t.channel === 'agent'
       const cost = isAgent
-        ? costToFeaturedAgent(N, agentState.pity, agentState.guaranteed, qAgent, scenario)
-        : costToFeaturedEngine(N, engineState.pity, engineState.guaranteed, qEngine, scenario)
+        ? costToFeaturedAgent(agentState.pity, agentState.guaranteed, qAgent, scenario)
+        : costToFeaturedEngine(engineState.pity, engineState.guaranteed, qEngine, scenario)
 
       const nextAgentState = { ...agentState }
       const nextEngineState = { ...engineState }
@@ -246,11 +263,15 @@ export function computeTwoPhasePlan(
 
       const newRemainingEnd = remainingEnd - cost
       const newRemainingStart = remainingStart - cost
-      const reserveAfter = reserveForNextPhase(nextPhaseAgents, nextAgentState, nextEngineState)
+      const currentGlobalIndex = globalIndexByName[t.name] ?? Number.POSITIVE_INFINITY
+      const reserveAfter = reserveForNextPhase(nextPhaseTargets, nextAgentState, nextEngineState, currentGlobalIndex)
       const affordableEnd = newRemainingEnd >= reserveAfter
       const affordableStart = newRemainingStart >= reserveAfter
-      if (!affordableEnd)
+      if (!affordableEnd) {
+        shortfallEnd = Math.max(0, reserveAfter - newRemainingEnd)
+        shortfallStart = Math.max(0, reserveAfter - newRemainingStart)
         break
+      }
 
       remainingEnd = newRemainingEnd
       if (affordableStart)
@@ -272,7 +293,7 @@ export function computeTwoPhasePlan(
       }
     }
 
-    const reserveNext = reserveForNextPhase(nextPhaseAgents, agentState, engineState)
+    const reserveNext = reserveForNextPhase(nextPhaseTargets, agentState, engineState, Number.POSITIVE_INFINITY)
     return {
       remainingStart,
       remainingEnd,
@@ -284,7 +305,38 @@ export function computeTwoPhasePlan(
       engineStateAfter: engineState,
       reserveForNextPhase: reserveNext,
       boughtNames,
+      shortfallStart,
+      shortfallEnd,
     }
+  }
+
+  function phaseSuccessProb(
+    budget: number,
+    targetsInPhase: SelectedTargetInput[],
+    agentStateIn: { pity: number, guaranteed: boolean },
+    engineStateIn: { pity: number, guaranteed: boolean },
+  ): number {
+    let pmfTotal: number[] = [1]
+    const agentState = { ...agentStateIn }
+    const engineState = { ...engineStateIn }
+    for (const t of targetsInPhase) {
+      const pmf = t.channel === 'agent'
+        ? featuredCostPmf('agent', agentState.pity, agentState.guaranteed, qAgent)
+        : featuredCostPmf('engine', engineState.pity, engineState.guaranteed, qEngine)
+      pmfTotal = convolveDiscrete(pmfTotal, pmf)
+      if (t.channel === 'agent') {
+        agentState.pity = 0
+        agentState.guaranteed = false
+      }
+      else {
+        engineState.pity = 0
+        engineState.guaranteed = false
+      }
+    }
+    const b = Math.max(0, Math.floor(budget))
+    let acc = 0
+    for (let i = 0; i < pmfTotal.length && i + 1 <= b; i++) acc += pmfTotal[i]
+    return Math.max(0, Math.min(1, acc))
   }
 
   const simP1 = simulatePhaseOrdered(
@@ -324,6 +376,9 @@ export function computeTwoPhasePlan(
   const phase2StartSim = simulatePhase2(budgetPhase2Start)
   const phase2EndSim = simulatePhase2(budgetPhase2)
   const enginePityPhase2Start = enginePity
+  const agentPityPhase2Start = agentPity
+  const agentGuaranteedPhase2Start = agentGuaranteed
+  const engineGuaranteedPhase2Start = engineGuaranteed
   const phase2AgentsCost = Math.max(0, phase2EndSim.spentAgents)
   const phase2EnginesCost = Math.max(0, phase2EndSim.spentEngines)
   const totalPhase2Agents = phase2Targets.filter(t => t.channel === 'agent').length
@@ -337,6 +392,31 @@ export function computeTwoPhasePlan(
   const agentsGot = simP1.boughtAgents + phase2EndSim.boughtAgents
   const enginesGot = simP1.boughtEngines + phase2EndSim.boughtEngines
   const pullsLeft = budgetPhase2 - phase2EndSim.spentAgents - phase2EndSim.spentEngines
+
+  const phase1SuccessStart = phaseSuccessProb(
+    phase1StartBudget,
+    phase1Targets,
+    { pity: clamp(pityAgentStart, 0, 89), guaranteed: Boolean(guaranteedAgentStart) },
+    { pity: clamp(pityEngineStart, 0, 79), guaranteed: Boolean(guaranteedEngineStart) },
+  )
+  const phase1SuccessEnd = phaseSuccessProb(
+    phase1EndBudget,
+    phase1Targets,
+    { pity: clamp(pityAgentStart, 0, 89), guaranteed: Boolean(guaranteedAgentStart) },
+    { pity: clamp(pityEngineStart, 0, 79), guaranteed: Boolean(guaranteedEngineStart) },
+  )
+  const phase2SuccessStart = phaseSuccessProb(
+    budgetPhase2Start,
+    phase2Targets,
+    { pity: agentPity, guaranteed: agentGuaranteed },
+    { pity: enginePity, guaranteed: engineGuaranteed },
+  )
+  const phase2SuccessEnd = phaseSuccessProb(
+    budgetPhase2,
+    phase2Targets,
+    { pity: agentPity, guaranteed: agentGuaranteed },
+    { pity: enginePity, guaranteed: engineGuaranteed },
+  )
 
   return {
     phase1: {
@@ -353,17 +433,28 @@ export function computeTwoPhasePlan(
       canAffordAgentEnd: (simP1.boughtAgents === totalPhase1Agents),
       canAffordEngineStart: (simP1.boughtEngines === totalPhase1Engines) && (engineSpendP1Start === engineSpendP1End),
       canAffordEngineEnd: (simP1.boughtEngines === totalPhase1Engines),
+      successProbStart: phase1SuccessStart,
+      successProbEnd: phase1SuccessEnd,
+      shortfallStart: Math.max(0, simP1.shortfallStart ?? 0),
+      shortfallEnd: Math.max(0, simP1.shortfallEnd ?? 0),
     },
     phase2: {
       agentCost: Math.max(0, phase2AgentsCost),
       engineCost: Math.max(0, phase2EnginesCost),
       enginePityStart: enginePityPhase2Start,
+      agentPityStart: agentPityPhase2Start,
+      agentGuaranteedStart: agentGuaranteedPhase2Start,
+      engineGuaranteedStart: engineGuaranteedPhase2Start,
       canAffordAgent: canAffordPhase2Agents,
       canAffordEngineAfterAgent: canAffordPhase2EngineAfterAgent,
       startBudget: Math.max(0, budgetPhase2Start),
       endBudget: Math.max(0, budgetPhase2),
       canAffordAgentStart: canAffordPhase2AgentsStart,
       canAffordEngineAfterAgentStart: canAffordPhase2EngineAfterAgentStart,
+      successProbStart: phase2SuccessStart,
+      successProbEnd: phase2SuccessEnd,
+      shortfallStart: Math.max(0, phase2StartSim.shortfallEnd ?? 0),
+      shortfallEnd: Math.max(0, phase2EndSim.shortfallEnd ?? 0),
     },
     totals: {
       agentsGot,

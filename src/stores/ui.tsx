@@ -21,7 +21,7 @@ type UIStoreState = UIState & {
 
 interface UIStoreActions {
   setPlannerInput: <K extends keyof PlannerInputs>(key: K, value: PlannerInputs[K]) => void
-  setScenario: (scenario: Scenario) => void
+  setScenario: (scenario: UILocalState['scenario']) => void
   setPhase1Timing: (t: 'start' | 'end') => void
   setPhase2Timing: (t: 'start' | 'end') => void
   resetPlannerInputs: () => void
@@ -36,8 +36,6 @@ export function UIStoreProvider(props: ParentProps) {
 
   const defaultPlannerInputs: PlannerInputs = {
     N: 60,
-    qAgent: 0.5,
-    qEngine: 0.75,
     pullsOnHand: 0,
     incomePhase1: 75,
     incomePhase2: 75,
@@ -45,11 +43,12 @@ export function UIStoreProvider(props: ParentProps) {
     guaranteedAgentStart: false,
     pityEngineStart: 0,
     guaranteedEngineStart: false,
+    luckMode: 'realistic',
   }
 
   const [baseLocal, setBaseLocal] = createStore<UILocalState>({
     plannerInputs: defaultPlannerInputs,
-    scenario: 'expected',
+    scenario: 'p60',
     phase1Timing: 'end',
     phase2Timing: 'end',
   })

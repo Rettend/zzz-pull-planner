@@ -1,10 +1,14 @@
+import type { JSX } from 'solid-js'
 import type { PhasePlan } from '~/lib/planner'
-import { createMemo, createSignal, Show } from 'solid-js'
+import { createMemo, createSignal, For, Show } from 'solid-js'
 import { TargetPicker } from '~/components/TargetPicker'
 import { Badge, boolInput, BudgetBar, CheckboxField, NumberField, numberInput, StatRow } from '~/components/ui'
+import { formatPlanCopyText } from '~/lib/clipboard'
+import { BANNERS } from '~/lib/constants'
 import { computeTwoPhasePlan, emptyPlan } from '~/lib/planner'
 import { useTargetsStore } from '~/stores/targets'
 import { useUIStore } from '~/stores/ui'
+import { computeChannelBreakdown, roundToTarget } from '~/utils/plan'
 
 export default function Home() {
   const [ui, actions] = useUIStore()
@@ -13,6 +17,7 @@ export default function Home() {
   const scenario = () => ui.local.scenario
   const phase1Timing = () => ui.local.phase1Timing
   const phase2Timing = () => ui.local.phase2Timing
+  const luckMode = () => ui.local.plannerInputs.luckMode ?? 'realistic'
 
   const selectedTargets = () => (targets?.selected ?? []).slice().sort((a, b) => a.priority - b.priority).map(t => ({ name: t.name, channel: t.channel }))
 
@@ -33,75 +38,68 @@ export default function Home() {
 
   const [copied, setCopied] = createSignal(false)
 
-  function formatNumber(n: number): string {
-    const rounded = Math.round((n + Number.EPSILON) * 100) / 100
-    return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2)
+  function rangeKey(b: { start: string, end: string }) {
+    return `${b.start}→${b.end}`
+  }
+  const ranges = createMemo(() => Array.from(new Set(BANNERS.map(b => rangeKey(b)))).sort((a, b) => a.localeCompare(b)))
+  function phaseOfName(name: string): 1 | 2 {
+    const b = BANNERS.find(x => x.featured === name)
+    if (!b)
+      return 1
+    const idx = ranges().indexOf(rangeKey(b))
+    return (idx <= 0 ? 1 : 2)
+  }
+  function namesForPhaseChannel(phase: 1 | 2, channel: 'agent' | 'engine'): string[] {
+    return selectedTargets().filter(t => (phaseOfName(t.name) === phase) && t.channel === channel).map(t => t.name)
   }
 
-  function costExplain(N: number, pity: number, guaranteed: boolean, q: number): string {
-    const s = scenario()
-    const parts: string[] = []
-    parts.push(`-${formatNumber(pity)}`)
-    parts.push(formatNumber(N))
-    let extra = 0
-    if (s === 'expected') {
-      extra = guaranteed ? 0 : (1 - q) * N
-    }
-    else if (s === 'worst') {
-      extra = guaranteed ? 0 : N
-    }
-    if (extra > 0)
-      parts.push(formatNumber(extra))
-    return `(${parts.join('+')})`
+  function planCost(phase: 1 | 2, channel: 'agent' | 'engine'): number {
+    if (phase === 1)
+      return channel === 'agent' ? plan().phase1.agentCost : plan().phase1.engineCost
+    return channel === 'agent' ? plan().phase2.agentCost : plan().phase2.engineCost
+  }
+
+  function displayedCost(phase: 1 | 2, channel: 'agent' | 'engine'): number {
+    const actual = Math.round(planCost(phase, channel))
+    if (actual > 0)
+      return actual
+    const br = computeChannelBreakdown(phase, channel, plan(), scenario(), inputs(), namesForPhaseChannel(phase, channel))
+    if (!br)
+      return 0
+    const raw = br.parts.map(p => p.value)
+    return Math.round(raw.reduce((a, b) => a + b, 0))
+  }
+
+  function renderExplainForPhaseChannel(
+    phase: 1 | 2,
+    channel: 'agent' | 'engine',
+    displayedTotal: number,
+    pityLabel: string,
+    notMet: boolean,
+  ): JSX.Element | null {
+    const breakdown = computeChannelBreakdown(phase, channel, plan(), scenario(), inputs(), namesForPhaseChannel(phase, channel))
+    if (!breakdown)
+      return null
+    const rawValues = breakdown.parts.map(p => p.value)
+    const sumRaw = Math.round(rawValues.reduce((a, b) => a + b, 0))
+    const rounded = roundToTarget(rawValues, displayedTotal > 0 ? displayedTotal : sumRaw)
+    return (
+      <span>
+        <span class="text-zinc-400" title="First S (green) is the p-selected cost to hit the next S. Off-feature reserve (yellow) is extra budget kept for the possibility you lose the 50-50 at this risk level; it is not always spent.">{pityLabel}</span>
+        <For each={rounded}>
+          {(v, i) => (
+            <span class={notMet ? 'text-red-300' : (breakdown.parts[i()].kind === 'first' ? 'text-emerald-300' : 'text-amber-300')} title={breakdown.parts[i()].kind === 'first' ? 'First S cost at selected risk' : 'Reserve for off-feature at selected risk'}>
+              +
+              {v}
+            </span>
+          )}
+        </For>
+      </span>
+    )
   }
 
   function formatCopyText(): string {
-    const i = inputs()
-    const s = scenario()
-    const sel = selectedTargets()
-    const p = plan()
-    const lines: string[] = []
-    lines.push(`Scenario: ${s}`)
-    lines.push('')
-    lines.push('Inputs:')
-    lines.push(`- N: ${formatNumber(i.N)}`)
-    lines.push(`- Pulls on hand (P0): ${formatNumber(i.pullsOnHand)}`)
-    lines.push(`- Income Phase 1 (I1): ${formatNumber(i.incomePhase1)}`)
-    lines.push(`- Income Phase 2 (I2): ${formatNumber(i.incomePhase2)}`)
-    lines.push(`- Agent pity (pA): ${formatNumber(i.pityAgentStart)}${i.guaranteedAgentStart ? ' (guaranteed)' : ''}`)
-    lines.push(`- W-Engine pity (pW): ${formatNumber(i.pityEngineStart)}${i.guaranteedEngineStart ? ' (guaranteed)' : ''}`)
-    lines.push(`- q Agent: ${formatNumber(i.qAgent)}`)
-    lines.push(`- q W-Engine: ${formatNumber(i.qEngine)}`)
-    lines.push('')
-    lines.push('Targets (in order):')
-    if (sel.length === 0) {
-      lines.push('(none)')
-    }
-    else {
-      sel.forEach((t, idx) => {
-        lines.push(`${idx + 1}. ${t.name} [${t.channel === 'agent' ? 'Agent' : 'W-Engine'}]`)
-      })
-    }
-    lines.push('')
-    lines.push('Plan:')
-    lines.push('Phase 1:')
-    lines.push(`- Budget start: ${formatNumber(p.phase1.startBudget)}`)
-    lines.push(`- Budget end: ${formatNumber(p.phase1.endBudget)}`)
-    lines.push(`- Agents cost: ${formatNumber(p.phase1.agentCost)} (${p.phase1.canAffordAgentStart ? 'affordable at start' : 'not met at start'} / ${p.phase1.canAffordAgentEnd ? 'affordable at end' : 'not met at end'})`)
-    lines.push(`- Engines spend (start): ${formatNumber(p.phase1.engineSpendStart)}`)
-    lines.push(`- Engines spend (end): ${formatNumber(p.phase1.engineSpendEnd)}`)
-    lines.push(`- Reserve for Phase 2: ${formatNumber(p.phase1.reserveForPhase2)}`)
-    lines.push(`- Carry to Phase 2 (start): ${formatNumber(p.phase1.carryToPhase2Start)}`)
-    lines.push(`- Carry to Phase 2 (end): ${formatNumber(p.phase1.carryToPhase2End)}`)
-    lines.push('')
-    lines.push('Phase 2:')
-    lines.push(`- Budget start: ${formatNumber(p.phase2.startBudget)}`)
-    lines.push(`- Budget end: ${formatNumber(p.phase2.endBudget)}`)
-    lines.push(`- Agents cost: ${formatNumber(p.phase2.agentCost)} (${p.phase2.canAffordAgentStart ? 'affordable at start' : 'not met at start'} / ${p.phase2.canAffordAgent ? 'affordable at end' : 'not met at end'})`)
-    lines.push(`- Engines cost: ${formatNumber(p.phase2.engineCost)} (${p.phase2.canAffordEngineAfterAgentStart ? 'affordable at start' : 'not met at start'} / ${p.phase2.canAffordEngineAfterAgent ? 'affordable at end' : 'not met at end'})`)
-    lines.push('')
-    lines.push(`Totals: Agents ${formatNumber(p.totals.agentsGot)}, Engines ${formatNumber(p.totals.enginesGot)}, Pulls left end ${formatNumber(p.totals.pullsLeftEnd)}`)
-    return lines.join('\n')
+    return formatPlanCopyText(inputs(), scenario(), selectedTargets(), plan())
   }
 
   async function onCopy() {
@@ -132,8 +130,8 @@ export default function Home() {
           <section class="p-4 border border-zinc-700 rounded-xl bg-zinc-800/50 space-y-4">
             <h2 class="text-lg text-emerald-300 tracking-wide font-bold">Inputs</h2>
             <div class="gap-3 grid grid-cols-2">
-              <NumberField label="N (pity cap)" min={1} {...numberInput(inputs, actions.setPlannerInput, 'N')} />
               <NumberField label="Pulls on hand P0" {...numberInput(inputs, actions.setPlannerInput, 'pullsOnHand')} />
+              <span />
 
               <NumberField label="Income Phase 1 (I1)" {...numberInput(inputs, actions.setPlannerInput, 'incomePhase1')} />
               <NumberField label="Income Phase 2 (I2)" {...numberInput(inputs, actions.setPlannerInput, 'incomePhase2')} />
@@ -143,15 +141,47 @@ export default function Home() {
 
               <NumberField label="W-Engine pity (pW)" {...numberInput(inputs, actions.setPlannerInput, 'pityEngineStart')} />
               <CheckboxField label="W-Engine guaranteed" {...boolInput(inputs, actions.setPlannerInput, 'guaranteedEngineStart')} />
-
-              <NumberField label="q Agent (win rate)" step={0.01} min={0} max={1} {...numberInput(inputs, actions.setPlannerInput, 'qAgent')} />
-              <NumberField label="q W-Engine (win rate)" step={0.01} min={0} max={1} {...numberInput(inputs, actions.setPlannerInput, 'qEngine')} />
             </div>
 
-            <div class="text-sm flex gap-2 items-center">
-              <button class={`px-3 py-1.5 border rounded-md ${scenario() === 'best' ? 'bg-emerald-600/30 border-emerald-500' : 'bg-zinc-900 border-zinc-700'}`} onClick={() => actions.setScenario('best')}>Best</button>
-              <button class={`px-3 py-1.5 border rounded-md ${scenario() === 'expected' ? 'bg-emerald-600/30 border-emerald-500' : 'bg-zinc-900 border-zinc-700'}`} onClick={() => actions.setScenario('expected')}>Expected</button>
-              <button class={`px-3 py-1.5 border rounded-md ${scenario() === 'worst' ? 'bg-emerald-600/30 border-emerald-500' : 'bg-zinc-900 border-zinc-700'}`} onClick={() => actions.setScenario('worst')}>Worst</button>
+            <div class="text-sm mt-10 space-y-3">
+              <div class="flex flex-wrap gap-2 items-center">
+                <button class={`px-3 py-1.5 border rounded-md ${scenario() === 'p50' ? 'bg-emerald-600/30 border-emerald-500' : 'bg-zinc-900 border-zinc-700'}`} onClick={() => actions.setScenario('p50')}>p50</button>
+                <button class={`px-3 py-1.5 border rounded-md ${scenario() === 'p60' ? 'bg-emerald-600/30 border-emerald-500' : 'bg-zinc-900 border-zinc-700'}`} onClick={() => actions.setScenario('p60')}>p60</button>
+                <button class={`px-3 py-1.5 border rounded-md ${scenario() === 'p75' ? 'bg-emerald-600/30 border-emerald-500' : 'bg-zinc-900 border-zinc-700'}`} onClick={() => actions.setScenario('p75')}>p75</button>
+                <button class={`px-3 py-1.5 border rounded-md ${scenario() === 'p90' ? 'bg-emerald-600/30 border-emerald-500' : 'bg-zinc-900 border-zinc-700'}`} onClick={() => actions.setScenario('p90')}>p90</button>
+                <button class={`px-3 py-1.5 border rounded-md ${scenario() === 'ev' ? 'bg-emerald-600/30 border-emerald-500' : 'bg-zinc-900 border-zinc-700'}`} onClick={() => actions.setScenario('ev')}>EV</button>
+              </div>
+              <div class="text-xs text-zinc-400 h-8">
+                {(() => {
+                  const s = scenario()
+                  if (s === 'p50')
+                    return 'Risk: p50 is the median — half the time you\'ll spend more, half less.'
+                  if (s === 'p60')
+                    return 'Risk: p60 adds a small buffer over median; a realistic default for many players.'
+                  if (s === 'p75')
+                    return 'Risk: p75 is a safe buffer; good if you want fewer surprises.'
+                  if (s === 'p90')
+                    return 'Risk: p90 is very safe; plan for the unlucky case.'
+                  if (s === 'ev')
+                    return 'EV: long-run average cost; useful benchmark, not a safety floor.'
+                  return 'Choose a risk level: higher p means a larger safety buffer.'
+                })()}
+              </div>
+              <div class="mt-5 flex flex-wrap gap-2 items-center">
+                <button class={`px-3 py-1.5 border rounded-md ${luckMode() === 'best' ? 'bg-emerald-600/30 border-emerald-500' : 'bg-zinc-900 border-zinc-700'}`} onClick={() => actions.setPlannerInput('luckMode', 'best')}>Best</button>
+                <button class={`px-3 py-1.5 border rounded-md ${luckMode() === 'realistic' ? 'bg-emerald-600/30 border-emerald-500' : 'bg-zinc-900 border-zinc-700'}`} onClick={() => actions.setPlannerInput('luckMode', 'realistic')}>Realistic</button>
+                <button class={`px-3 py-1.5 border rounded-md ${luckMode() === 'worst' ? 'bg-emerald-600/30 border-emerald-500' : 'bg-zinc-900 border-zinc-700'}`} onClick={() => actions.setPlannerInput('luckMode', 'worst')}>Worst</button>
+              </div>
+              <div class="text-xs text-zinc-400">
+                {(() => {
+                  const m = luckMode()
+                  if (m === 'best')
+                    return 'Featured odds: q=1.0. Plan as if you always win the 50/50 or 75/25.'
+                  if (m === 'worst')
+                    return 'Featured odds: q=0.0. Plan as if you always lose the 50/50 or 75/25.'
+                  return 'Featured odds: q=0.5 (Agents) / q=0.75 (W-Engines).'
+                })()}
+              </div>
             </div>
 
           </section>
@@ -176,7 +206,7 @@ export default function Home() {
                     label={`${plan().totals.enginesGot} Engines`}
                     title="How many W-Engines from your selection are affordable across both phases"
                   />
-                  <Badge label={`${plan().totals.pullsLeftEnd} left`} title="Estimated pulls remaining at the end of Phase 2" />
+                  <Badge label={`${Math.round(plan().totals.pullsLeftEnd)} left`} title="Estimated pulls remaining at the end of Phase 2" />
                   <button
                     class="px-3 py-1.5 border border-zinc-700 rounded-md bg-zinc-900 inline-flex gap-2 items-center hover:bg-zinc-800"
                     onClick={onCopy}
@@ -195,8 +225,13 @@ export default function Home() {
                     <div class="text-xs text-zinc-400">
                       Budget:
                       {' '}
-                      <span class="text-emerald-300">{phase1Timing() === 'start' ? plan().phase1.startBudget : plan().phase1.endBudget}</span>
+                      <span class="text-emerald-300">{Math.round(phase1Timing() === 'start' ? plan().phase1.startBudget : plan().phase1.endBudget)}</span>
                     </div>
+                    <Badge
+                      ok={(phase1Timing() === 'start' ? (plan().phase1.successProbStart ?? 0) : (plan().phase1.successProbEnd ?? 0)) >= 0.8}
+                      label={`${Math.round(((phase1Timing() === 'start' ? (plan().phase1.successProbStart ?? 0) : (plan().phase1.successProbEnd ?? 0)) * 100))}%`}
+                      title="Probability that all Phase 1 selected targets fit within the current budget"
+                    />
                     <div class="text-xs flex gap-1">
                       <button class={`px-2 py-0.5 border rounded ${phase1Timing() === 'start' ? 'bg-emerald-600/30 border-emerald-500' : 'bg-zinc-900 border-zinc-700'}`} onClick={() => actions.setPhase1Timing('start')}>Start</button>
                       <button class={`px-2 py-0.5 border rounded ${phase1Timing() === 'end' ? 'bg-emerald-600/30 border-emerald-500' : 'bg-zinc-900 border-zinc-700'}`} onClick={() => actions.setPhase1Timing('end')}>End</button>
@@ -216,21 +251,23 @@ export default function Home() {
                 <ul class="gap-x-3 gap-y-1 grid" style={{ 'grid-template-columns': '12rem 2rem 8rem auto' }}>
                   <StatRow
                     label="Agents cost"
-                    value={plan().phase1.agentCost}
+                    value={displayedCost(1, 'agent')}
+                    valueOk={phase1Timing() === 'start' ? plan().phase1.canAffordAgentStart : plan().phase1.canAffordAgentEnd}
                     badge={{ ok: phase1Timing() === 'start' ? plan().phase1.canAffordAgentStart : plan().phase1.canAffordAgentEnd, label: (phase1Timing() === 'start' ? plan().phase1.canAffordAgentStart : plan().phase1.canAffordAgentEnd) ? 'affordable' : 'not met' }}
                     title="Aggregated cost to secure Phase 1 selected Agents"
-                    explain={costExplain(inputs().N, inputs().pityAgentStart, inputs().guaranteedAgentStart, inputs().qAgent)}
+                    explain={renderExplainForPhaseChannel(1, 'agent', displayedCost(1, 'agent'), `-${Math.max(0, inputs().pityAgentStart)}`, !(phase1Timing() === 'start' ? plan().phase1.canAffordAgentStart : plan().phase1.canAffordAgentEnd))}
                   />
                   <StatRow
                     label="Engines cost"
-                    value={plan().phase1.engineCost}
+                    value={displayedCost(1, 'engine')}
+                    valueOk={phase1Timing() === 'start' ? plan().phase1.canAffordEngineStart : plan().phase1.canAffordEngineEnd}
                     badge={{ ok: phase1Timing() === 'start' ? plan().phase1.canAffordEngineStart : plan().phase1.canAffordEngineEnd, label: (phase1Timing() === 'start' ? plan().phase1.canAffordEngineStart : plan().phase1.canAffordEngineEnd) ? 'affordable' : 'not met' }}
                     title="Aggregated cost to secure Phase 1 selected Engines"
-                    explain={costExplain(inputs().N, inputs().pityEngineStart, inputs().guaranteedEngineStart, inputs().qEngine)}
+                    explain={renderExplainForPhaseChannel(1, 'engine', displayedCost(1, 'engine'), `-${Math.max(0, inputs().pityEngineStart)}`, !(phase1Timing() === 'start' ? plan().phase1.canAffordEngineStart : plan().phase1.canAffordEngineEnd))}
                   />
                   <StatRow
                     label="Reserve for Phase 2"
-                    value={<span class="text-amber-300">{plan().phase1.reserveForPhase2}</span>}
+                    value={<span class="text-amber-300">{Math.round(plan().phase1.reserveForPhase2)}</span>}
                     title="Minimum pulls to keep reserved at end of Phase 1 for Phase 2 targets"
                   />
                   <StatRow
@@ -249,8 +286,13 @@ export default function Home() {
                     <div class="text-xs text-zinc-400">
                       Budget:
                       {' '}
-                      <span class="text-emerald-300">{phase2Timing() === 'start' ? plan().phase2.startBudget : plan().phase2.endBudget}</span>
+                      <span class="text-emerald-300">{Math.round(phase2Timing() === 'start' ? plan().phase2.startBudget : plan().phase2.endBudget)}</span>
                     </div>
+                    <Badge
+                      ok={(phase2Timing() === 'start' ? (plan().phase2.successProbStart ?? 0) : (plan().phase2.successProbEnd ?? 0)) >= 0.8}
+                      label={`${Math.round(((phase2Timing() === 'start' ? (plan().phase2.successProbStart ?? 0) : (plan().phase2.successProbEnd ?? 0)) * 100))}%`}
+                      title="Probability that all Phase 2 selected targets fit within the current budget"
+                    />
                     <div class="text-xs flex gap-1">
                       <button class={`px-2 py-0.5 border rounded ${phase2Timing() === 'start' ? 'bg-emerald-600/30 border-emerald-500' : 'bg-zinc-900 border-zinc-700'}`} onClick={() => actions.setPhase2Timing('start')}>Start</button>
                       <button class={`px-2 py-0.5 border rounded ${phase2Timing() === 'end' ? 'bg-emerald-600/30 border-emerald-500' : 'bg-zinc-900 border-zinc-700'}`} onClick={() => actions.setPhase2Timing('end')}>End</button>
@@ -270,17 +312,19 @@ export default function Home() {
                 <ul class="gap-x-3 gap-y-1 grid" style={{ 'grid-template-columns': '12rem 2rem 8rem auto' }}>
                   <StatRow
                     label="Agents cost"
-                    value={plan().phase2.agentCost}
+                    value={displayedCost(2, 'agent')}
+                    valueOk={phase2Timing() === 'start' ? plan().phase2.canAffordAgentStart : plan().phase2.canAffordAgent}
                     badge={{ ok: phase2Timing() === 'start' ? plan().phase2.canAffordAgentStart : plan().phase2.canAffordAgent, label: (phase2Timing() === 'start' ? plan().phase2.canAffordAgentStart : plan().phase2.canAffordAgent) ? 'affordable' : 'not met' }}
                     title="Aggregated cost to secure Phase 2 selected Agents"
-                    explain={costExplain(inputs().N, 0, false, inputs().qAgent)}
+                    explain={renderExplainForPhaseChannel(2, 'agent', displayedCost(2, 'agent'), `-0`, !(phase2Timing() === 'start' ? plan().phase2.canAffordAgentStart : plan().phase2.canAffordAgent))}
                   />
                   <StatRow
                     label="Engines cost"
-                    value={plan().phase2.engineCost}
+                    value={displayedCost(2, 'engine')}
+                    valueOk={phase2Timing() === 'start' ? plan().phase2.canAffordEngineAfterAgentStart : plan().phase2.canAffordEngineAfterAgent}
                     badge={{ ok: phase2Timing() === 'start' ? plan().phase2.canAffordEngineAfterAgentStart : plan().phase2.canAffordEngineAfterAgent, label: (phase2Timing() === 'start' ? plan().phase2.canAffordEngineAfterAgentStart : plan().phase2.canAffordEngineAfterAgent) ? 'affordable' : 'not met' }}
                     title="Aggregated cost to secure Phase 2 selected Engines"
-                    explain={costExplain(inputs().N, plan().phase2.enginePityStart, false, inputs().qEngine)}
+                    explain={renderExplainForPhaseChannel(2, 'engine', displayedCost(2, 'engine'), `-${Math.max(0, plan().phase2.enginePityStart)}`, !(phase2Timing() === 'start' ? plan().phase2.canAffordEngineAfterAgentStart : plan().phase2.canAffordEngineAfterAgent))}
                   />
                 </ul>
               </div>
@@ -320,10 +364,28 @@ export default function Home() {
                       <span class="text-red-300">{[...missedAgents(), ...missedEngines()].join(', ')}</span>
                     </li>
                   </Show>
+                  <Show when={plan().phase1.shortfallEnd && (plan().phase1.shortfallEnd ?? 0) > 0}>
+                    <li>
+                      You would need
+                      {' '}
+                      <span class="text-red-300">{Math.round(plan().phase1.shortfallEnd ?? 0)}</span>
+                      {' '}
+                      more pulls at the end of Phase 1 to fund all Phase 1 selections.
+                    </li>
+                  </Show>
+                  <Show when={plan().phase2.shortfallEnd && (plan().phase2.shortfallEnd ?? 0) > 0}>
+                    <li>
+                      You would need
+                      {' '}
+                      <span class="text-red-300">{Math.round(plan().phase2.shortfallEnd ?? 0)}</span>
+                      {' '}
+                      more pulls at the end of Phase 2 to get everything.
+                    </li>
+                  </Show>
                   <li>
                     End of Phase 2 you have
                     {' '}
-                    <span class="text-emerald-300">{plan().totals.pullsLeftEnd}</span>
+                    <span class="text-emerald-300">{Math.round(plan().totals.pullsLeftEnd)}</span>
                     {' '}
                     pulls left.
                   </li>

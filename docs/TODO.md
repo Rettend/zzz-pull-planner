@@ -72,100 +72,45 @@ assets/
 
 ---
 
-## Deliverables
+## Status (v2.3)
 
-1) Hardcoded 2.3 banner data module with image references.
-2) Risk/quantile-based cost model using real soft/hard pity and guarantees.
-3) Target selection UI (choose banners/targets, set priority, must-have vs optional).
-4) Planner engine that allocates pulls across phases by priority, honors guarantees, and computes success probabilities; no pre-pull logic.
-5) Updated UI (risk slider, probability badges, distribution-aware budget bars, copy updates removing “pre-pull”).
-6) Documentation updates.
+### Done
 
----
+- Hardcoded v2.3 banners with assets wired in `src/lib/constants.ts`; icons rendered by `TargetIconCard` with attribute/specialty overlays and S-rank badge.
+- Image helpers with Unknown fallback via `utils/assets` and constants exports.
+- Probability engine: hazard tables (Agent 90, Engine 80), pity offset, PMF/CMF, EV and quantiles, featured-mixture (q: Agents 0.5, Engines 0.75), discrete convolution, budget `Pr(T ≤ B)`.
+- Planner v1:
+  - Priority-ordered allocation across phases.
+  - Quantile-selected costs per target using current pity/guarantee and channel q (luck mode).
+  - Phase 1 reserve carried for Phase 2; engine spend gated at phase start to keep reserve.
+  - Phase success probabilities, per-phase budgets, funded target lists, totals (agentsGot, enginesGot, pullsLeftEnd).
+- UI:
+  - Target selection by phase window; drag-and-drop reordering.
+  - Channel inputs (pity/guaranteed) per Agent and W-Engine.
+  - Risk buttons p50/p60/p75/p90/EV with helper text; luck mode toggle.
+  - Budget bars and success-probability badges; copy-to-clipboard summary.
 
-## Tasks
+### In progress
 
-### 1. Data Layer
+- Refine allocation policy (agents-first where applicable; stronger reserve enforcement for later Agents).
+- Per-target surfaces (EV and quantiles).
+- Copy cleanup to fully remove “pre-pull/pity bank” language.
 
-- [ ] Define types: `ChannelType = 'agent' | 'engine'`, `Banner`, `Target`, `DateRange`.
-- [x] Create `src/data/banners.v23.ts` exporting the four Agent and four W-Engine banners listed above, including start/end dates and asset paths. (Implemented in `src/lib/constants.ts` as `BANNERS`.)
-- [x] Implement image helper: resolve icon path by target name with fallback to `assets/Unknown.webp`.
-- [ ] Persist per-account channel states (Agent, W-Engine): `{ pity: number; guaranteed: boolean; }` (carry across banners). No Standard channel state.
+## Next Focus (actionable)
 
-### 2. Probability Model (No Pity Bank)
+- [ ] Implement agents-first rule and ensure Engines only after reserving for all later Agents at chosen risk.
+- [ ] Add off-feature policy toggle (Stop vs Continue) and guarantee transitions; simulate Stop/Continue for Agents.
+- [ ] Show per-target cards with p50/p60/p75/p90/EV, featured odds q, and resulting guarantee state.
+- [ ] Compute overall plan success probability across both phases; display a totals badge.
+- [ ] Validate persistence of per-channel state (pity/guaranteed); promote to a dedicated store if needed.
+- [ ] Lazy-load images in lists; verify crisp rendering on dark backgrounds.
+- [ ] Add unit tests: hazard math invariants, featured-mixture goldens, multi-target scenario sanity checks.
+- [ ] Copy cleanup: remove any remaining “pre-pull/pity bank” mentions and clarify saving guidance.
 
-- [ ] Store hazard tables per channel (Agents 1..90, Engines 1..80) with a soft pity ramp (default piecewise-linear: low base → ramp at ~75/65 → 100% at hard pity).
-- [ ] Compute first S PMF/CMF: `P(T=k) = h_k * Π_{i<k}(1 - h_i)`; ensure CMF at hard pity is 1.
-- [ ] Featured cost distribution when `guaranteed=false`: mixture of `T1` (prob q) and `T1 + T2` (prob 1−q), with pity reset between S’s.
-- [ ] Featured cost distribution when `guaranteed=true`: distribution of `T1` only.
-- [ ] Extract EV, quantiles (p50/p75/p90/p95/p99), and `Pr(T ≤ B)` for any budget B.
-- [ ] Parameterize q by channel: Agents q=0.5, W-Engines q=0.75.
+## Milestones
 
-### 3. Planning Engine (Two Phases, Priorities)
-
-- [x] Inputs: phase budgets (P0 + I1 → Phase 1; carry + I2 → Phase 2), selected targets with type (Agent or W-Engine), priority order, “Stop on off-feature” vs “Continue” policy per Agent channel. (Targets and priority integrated via `TargetPicker` and `stores/targets`.)
-- [ ] Replace N-based costs with quantile-selected costs per target using current pity/guarantee/channel.
-- [ ] Allocation policy:
-  - [ ] Process targets in priority order across phases.
-  - [ ] Allocate at chosen risk quantile (e.g., p90) for each target.
-  - [ ] Agents first; Engines only after ensuring reserve for later Agents per chosen risk level.
-  - [ ] Update guarantee state after each simulated S per policy:
-    - If off-feature and policy=Stop: spend ends, guarantee=true carries to next banner.
-    - If off-feature and policy=Continue: add second T, guarantee consumed; update pity=0 afterwards.
-  - [x] No partial spending and no pre-pull; either fully fund a target within a phase or defer.
-- [ ] Outputs:
-  - [ ] Per target: EV, p50/p90/p95/p99 cost and `Pr(within current phase budget)`.
-  - [ ] Per phase: budget start/end, funded targets, success probability to hit plan, pulls remaining.
-  - [ ] Totals: count of Agents/Engines obtained, probability to achieve all selected targets, expected pulls left.
-
-### 4. UI/UX
-
-- [ ] Target selection panel:
-  - [x] List banners grouped by phase window with icons, names, and dates.
-  - [x] Allow selecting specific targets (e.g., Lucia, Yidhari, Roaring Fur-nace, etc.).
-  - [ ] Drag-and-drop to set priority; mark targets as Must-have or Optional.
-  - [x] Drag-and-drop to set priority (reordering implemented).
-  - [x] For each channel, input current pity and guaranteed (Agent and W-Engine separately).
-- [ ] Risk configuration:
-  - [ ] Replace Best/Expected/Worst with a Risk slider (p50 → p99), plus a separate EV info toggle.
-  - [ ] Policy toggle: “Stop on off-feature” vs “Continue until featured”.
-- [ ] Planner visualization:
-  - [ ] Budget bars with quantile bands (e.g., p50–p90 range) and tooltips for EV.
-  - [ ] Badges showing `Pr(success within budget)` rather than binary affordable/not.
-  - [ ] Cards per target: show EV, p50, p90, p95, p99, featured probability q, and guarantee state after action.
-- [ ] Copy cleanup: remove all references to “pre-pull/pity bank”; tips emphasize “save pulls; do not pull if you need to conserve for later Agents”.
-
-### 5. Assets Integration
-
-- [x] Map Agent names → `assets/agents/*_Icon.webp` and W-Engine names → `assets/w-engines/*_Icon.webp`.
-- [x] Use `assets/Unknown.webp` when a mapping is missing.
-- [ ] Lazy-load images in lists; ensure crisp rendering on dark UI.
-
-### 6. Documentation
-
-- [ ] Update `docs/PLAN.md` to remove pre-pull guidance and N=60 shortcuts; describe risk/quantile approach and guarantee policies.
-- [ ] Add `docs/BANNERS.v23.md` listing hardcoded banners and assets used.
-- [ ] Note that Standard channel and A-ranks are intentionally out of scope.
-
-### 7. Validation & QA
-
-- [ ] Unit tests for hazard math (PMF sums to 1, CMF monotonic, quantiles correct).
-- [ ] Golden test cases for cost distributions (Agents and Engines, guaranteed vs not, on/off-feature policies).
-- [ ] Scenario checks: multi-target plans at different risk levels produce sensible reserves and probabilities.
-
-### 8. Milestones
-
-- [x] M1: Data scaffolding – types + banners + assets mapping.
-- [ ] M2: Probability engine – hazards, PMF/CMF, EV/quantiles, mixtures.
-- [ ] M3: Planner engine – priority allocation, policies, outputs.
-- [ ] M4: UI – selection, risk slider, visuals, copy cleanup.
-- [ ] M5: Docs + validation.
-
----
-
-## Notes & Decisions
-
-- No “pity bank” mechanics will be modeled or recommended.
-- Standard channel and A-rank considerations are excluded by design.
-- Guarantees are tracked per channel type (Agent vs W-Engine) and carry across banners.
-- Risk defaults to p90 but can be adjusted by the user.
+- [x] M1: Data scaffolding (types, banners, assets).
+- [x] M2: Probability engine (hazards, PMF/CMF, EV/quantiles, mixtures).
+- [ ] M3: Planner engine (agents-first and policies, per-target outputs, overall probability).
+- [ ] M4: UI polish (per-target cards, visuals, copy).
+- [ ] M5: Tests + docs.
