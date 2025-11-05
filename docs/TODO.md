@@ -4,6 +4,7 @@
 
 - mindscape support with nice ui, maybe small + - buttons for targets
 - perf fix: accounts without unmounting?
+- pull 1 and pull 10 buttons to quickly change available pulls and pity
 
 ## Overview
 

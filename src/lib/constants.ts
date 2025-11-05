@@ -92,7 +92,7 @@ export const W_ENGINES: Record<string, WEngineMeta> = {
   'Kraken\'s Cradle': {
     name: 'Kraken\'s Cradle',
     specialty: 'Rupture',
-    icon: UNKNOWN_ICON,
+    icon: resolveWEngineIcon('Krakens Cradle'),
   },
   'Roaring Fur-nace': {
     name: 'Roaring Fur-nace',
