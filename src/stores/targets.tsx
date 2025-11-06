@@ -10,6 +10,7 @@ export interface SelectedTarget {
   name: string
   channel: ChannelType
   priority: number
+  mindscapeCount: number // 0 = M0 (base), 1 = M1, ..., 6 = M6 for agents, 5 = M5 for engines
 }
 
 interface TargetsLocalState {
@@ -22,6 +23,9 @@ type StoreContextType = [Store<TargetsLocalState>, {
   setPriority: (name: string, priority: number) => void
   reorder: (fromIndex: number, toIndex: number) => void
   clear: () => void
+  incrementMindscape: (name: string) => void
+  decrementMindscape: (name: string) => void
+  setMindscape: (name: string, count: number) => void
 }]
 
 const StoreContext = createContext<StoreContextType>()
@@ -46,7 +50,7 @@ export function TargetsStoreProvider(props: ParentProps & { accountId: string })
     add: ({ name, channel }: { name: string, channel: ChannelType }) => {
       if (local.selected.some(s => s.name === name))
         return
-      setLocal('selected', s => [...s, { name, channel, priority: nextPriority() }])
+      setLocal('selected', s => [...s, { name, channel, priority: nextPriority(), mindscapeCount: 0 }])
     },
     remove: (name: string) => {
       setLocal('selected', s => s.filter(x => x.name !== name))
@@ -71,6 +75,23 @@ export function TargetsStoreProvider(props: ParentProps & { accountId: string })
     },
     clear: () => {
       setLocal('selected', [])
+    },
+    incrementMindscape: (name: string) => {
+      setLocal('selected', x => x.name === name, (target) => {
+        const max = target.channel === 'agent' ? 6 : 5
+        return { ...target, mindscapeCount: Math.min(max, target.mindscapeCount + 1) }
+      })
+    },
+    decrementMindscape: (name: string) => {
+      setLocal('selected', x => x.name === name, (target) => {
+        return { ...target, mindscapeCount: Math.max(0, target.mindscapeCount - 1) }
+      })
+    },
+    setMindscape: (name: string, count: number) => {
+      setLocal('selected', x => x.name === name, (target) => {
+        const max = target.channel === 'agent' ? 6 : 5
+        return { ...target, mindscapeCount: Math.max(0, Math.min(max, count)) }
+      })
     },
   }
 
