@@ -23,7 +23,20 @@ export default function Home() {
   const phase2Timing = () => ui.local.phase2Timing
   const luckMode = () => ui.local.plannerInputs.luckMode ?? 'realistic'
 
-  const selectedTargets = () => (targets?.selected ?? []).slice().sort((a, b) => a.priority - b.priority).map(t => ({ name: t.name, channel: t.channel }))
+  // Get selected targets sorted by priority
+  const selectedSorted = () => (targets?.selected ?? []).slice().sort((a, b) => a.priority - b.priority)
+
+  // Expand selected targets into duplicates based on mindscape count
+  const selectedTargets = () => {
+    const result: Array<{ name: string, channel: 'agent' | 'engine' }> = []
+    for (const t of selectedSorted()) {
+      const count = t.mindscapeCount + 1 // +1 because M0 = 1 pull, M1 = 2 pulls, etc.
+      for (let i = 0; i < count; i++) {
+        result.push({ name: t.name, channel: t.channel })
+      }
+    }
+    return result
+  }
 
   const plan = createMemo<PhasePlan>(() => {
     try {
@@ -34,11 +47,72 @@ export default function Home() {
     }
   })
 
-  const fundedSet = createMemo(() => new Set(plan().fundedTargets))
-  const fundedAgents = createMemo(() => selectedTargets().filter(t => t.channel === 'agent' && fundedSet().has(t.name)).map(t => t.name))
-  const missedAgents = createMemo(() => selectedTargets().filter(t => t.channel === 'agent' && !fundedSet().has(t.name)).map(t => t.name))
-  const fundedEngines = createMemo(() => selectedTargets().filter(t => t.channel === 'engine' && fundedSet().has(t.name)).map(t => t.name))
-  const missedEngines = createMemo(() => selectedTargets().filter(t => t.channel === 'engine' && !fundedSet().has(t.name)).map(t => t.name))
+  // Calculate which mindscape levels are funded for each target
+  const fundedMindscapes = createMemo(() => {
+    const funded = plan().fundedTargets
+    const result = new Map<string, number>() // name -> highest funded mindscape
+
+    for (const name of funded) {
+      const current = result.get(name) ?? -1
+      result.set(name, current + 1)
+    }
+
+    return result
+  })
+
+  const fundedAgents = createMemo(() => {
+    const funded = fundedMindscapes()
+    return selectedSorted()
+      .filter(t => t.channel === 'agent' && funded.has(t.name))
+      .map((t) => {
+        const maxFunded = funded.get(t.name) ?? 0
+        if (maxFunded === 0)
+          return t.name
+        return `${t.name} M${maxFunded}`
+      })
+  })
+
+  const missedAgents = createMemo(() => {
+    const funded = fundedMindscapes()
+    return selectedSorted()
+      .filter(t => t.channel === 'agent' && (!funded.has(t.name) || (funded.get(t.name) ?? 0) < t.mindscapeCount))
+      .map((t) => {
+        const maxFunded = funded.get(t.name) ?? -1
+        const remaining = t.mindscapeCount - maxFunded
+        if (remaining === t.mindscapeCount + 1)
+          return t.name
+        if (t.mindscapeCount === 0)
+          return t.name
+        return `${t.name} M${maxFunded + 1}-M${t.mindscapeCount}`
+      })
+  })
+
+  const fundedEngines = createMemo(() => {
+    const funded = fundedMindscapes()
+    return selectedSorted()
+      .filter(t => t.channel === 'engine' && funded.has(t.name))
+      .map((t) => {
+        const maxFunded = funded.get(t.name) ?? 0
+        if (maxFunded === 0)
+          return t.name
+        return `${t.name} M${maxFunded}`
+      })
+  })
+
+  const missedEngines = createMemo(() => {
+    const funded = fundedMindscapes()
+    return selectedSorted()
+      .filter(t => t.channel === 'engine' && (!funded.has(t.name) || (funded.get(t.name) ?? 0) < t.mindscapeCount))
+      .map((t) => {
+        const maxFunded = funded.get(t.name) ?? -1
+        const remaining = t.mindscapeCount - maxFunded
+        if (remaining === t.mindscapeCount + 1)
+          return t.name
+        if (t.mindscapeCount === 0)
+          return t.name
+        return `${t.name} M${maxFunded + 1}-M${t.mindscapeCount}`
+      })
+  })
 
   const [copied, setCopied] = createSignal(false)
 
