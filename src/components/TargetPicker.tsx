@@ -1,4 +1,5 @@
 import type { Component } from 'solid-js'
+import type { ChannelType } from '~/lib/constants'
 import { createMemo, createSignal, For, Show } from 'solid-js'
 import { BANNERS, isBannerPast } from '~/lib/constants'
 import { computeTwoPhasePlan, emptyPlan } from '~/lib/planner'
@@ -15,7 +16,17 @@ export const TargetPicker: Component = () => {
 
   const ranges = createMemo(() => [...new Set(BANNERS.filter(b => !isBannerPast(b)).map(b => `${b.start} → ${b.end}`))])
   const selectedSorted = createMemo(() => [...targets.selected].sort((a, b) => a.priority - b.priority))
-  const selectedTargetsInput = createMemo(() => selectedSorted().map(t => ({ name: t.name, channel: t.channel })))
+  // Expand selected targets into duplicates based on mindscape count
+  const selectedTargetsInput = createMemo(() => {
+    const result: Array<{ name: string, channel: ChannelType }> = []
+    for (const t of selectedSorted()) {
+      const count = t.mindscapeCount + 1 // +1 because M0 = 1 pull, M1 = 2 pulls, etc.
+      for (let i = 0; i < count; i++) {
+        result.push({ name: t.name, channel: t.channel })
+      }
+    }
+    return result
+  })
   const plan = createMemo(() => {
     try {
       return computeTwoPhasePlan(inputs(), scenario(), selectedTargetsInput())
@@ -24,8 +35,27 @@ export const TargetPicker: Component = () => {
       return emptyPlan()
     }
   })
-  const fundedSet = createMemo(() => new Set(plan().fundedTargets))
   const isSelected = (name: string) => targets.selected.some(s => s.name === name)
+
+  // Check if all mindscape levels of a target are funded
+  const isFullyFunded = createMemo(() => {
+    const funded = plan().fundedTargets
+    const fundedCounts = new Map<string, number>()
+
+    // Count how many of each target are funded
+    for (const name of funded) {
+      fundedCounts.set(name, (fundedCounts.get(name) ?? 0) + 1)
+    }
+
+    return (name: string) => {
+      const target = targets.selected.find(t => t.name === name)
+      if (!target)
+        return false
+      const requiredCount = target.mindscapeCount + 1 // M0 = 1, M1 = 2, etc.
+      const fundedCount = fundedCounts.get(name) ?? 0
+      return fundedCount >= requiredCount
+    }
+  })
 
   const [dragIndex, setDragIndex] = createSignal<number | null>(null)
   const [insertIndex, setInsertIndex] = createSignal<number | null>(null)
@@ -128,19 +158,33 @@ export const TargetPicker: Component = () => {
           {range => (
             <div class="space-y-2">
               <div class="text-sm text-emerald-200 font-semibold">{range}</div>
-              <div class="gap-3 grid grid-cols-2 lg:grid-cols-4 md:grid-cols-4 sm:grid-cols-3">
+              <div class="gap-3 grid grid-cols-2 lg:grid-cols-3 md:grid-cols-3 sm:grid-cols-2">
                 <For each={BANNERS.filter(b => !isBannerPast(b) && `${b.start} → ${b.end}` === range)}>
-                  {b => (
-                    <button
-                      class="text-left"
-                      onClick={() => isSelected(b.featured)
-                        ? actions.remove(b.featured)
-                        : actions.add({ name: b.featured, channel: b.type })}
-                      title={`${b.title} (${b.start} → ${b.end})`}
-                    >
-                      <TargetIconCard name={b.featured} context="selector" selected={isSelected(b.featured)} muted={!isSelected(b.featured)} notMet={isSelected(b.featured) && !fundedSet().has(b.featured)} />
-                    </button>
-                  )}
+                  {(b) => {
+                    const target = () => targets.selected.find(s => s.name === b.featured)
+                    return (
+                      <button
+                        class="text-left"
+                        onClick={() => isSelected(b.featured)
+                          ? actions.remove(b.featured)
+                          : actions.add({ name: b.featured, channel: b.type })}
+                        title={`${b.title} (${b.start} → ${b.end})`}
+                      >
+                        <TargetIconCard
+                          name={b.featured}
+                          context="selector"
+                          selected={isSelected(b.featured)}
+                          muted={!isSelected(b.featured)}
+                          notMet={isSelected(b.featured) && !isFullyFunded()(b.featured)}
+                          showMindscapeControls={isSelected(b.featured)}
+                          mindscapeCount={target()?.mindscapeCount ?? 0}
+                          channel={b.type}
+                          onIncrementMindscape={() => actions.incrementMindscape(b.featured)}
+                          onDecrementMindscape={() => actions.decrementMindscape(b.featured)}
+                        />
+                      </button>
+                    )
+                  }}
                 </For>
               </div>
             </div>
@@ -148,9 +192,9 @@ export const TargetPicker: Component = () => {
         </For>
       </div>
 
-      {/* Selected */}
+      {/* Selected - showing duplicates as independent cards */}
       <div class="space-y-2">
-        <div class="text-sm text-emerald-200 font-semibold">Selected (drag to reorder)</div>
+        <div class="text-sm text-emerald-200 font-semibold">Priority List (duplicates shown)</div>
         <div
           class="flex flex-wrap gap-3 items-start"
           onDragOver={e => onSelectedDragOver(e as unknown as DragEvent)}
@@ -175,6 +219,7 @@ export const TargetPicker: Component = () => {
                   return i() === d
                 return ni === beforeIndex()
               }
+              const duplicateCount = () => t.mindscapeCount + 1
               return (
                 <>
                   <Show when={showBefore()}>
@@ -189,11 +234,35 @@ export const TargetPicker: Component = () => {
                     onDragOver={e => onCardDragOver(e as unknown as DragEvent, i())}
                     style={{ display: isDragged() && dragActive() ? 'none' : undefined }}
                   >
-                    <TargetIconCard
-                      name={t.name}
-                      removable
-                      onRemove={() => actions.remove(t.name)}
-                    />
+                    {/* Show duplicates as separate cards */}
+                    <div class="flex flex-wrap gap-2">
+                      <For each={Array.from({ length: duplicateCount() })}>
+                        {(_, dupIndex) => (
+                          <div class="relative">
+                            <TargetIconCard
+                              name={t.name}
+                              channel={t.channel}
+                            />
+                            {/* Show mindscape label on each duplicate */}
+                            <div class="text-xs text-emerald-200 font-bold px-1.5 py-0.5 border border-zinc-700 rounded bg-zinc-900/90 bottom-1 left-1 absolute backdrop-blur-sm">
+                              M
+                              {dupIndex()}
+                            </div>
+                          </div>
+                        )}
+                      </For>
+                    </div>
+                    {/* Remove button for the entire group */}
+                    <button
+                      class="p-1 border border-zinc-700 rounded-full bg-zinc-900/90 opacity-0 flex size-8 shadow transition-opacity items-center justify-center absolute hover:border-red-500 hover:bg-red-600/80 group-hover:opacity-100 -right-2 -top-2"
+                      aria-label="Remove"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        actions.remove(t.name)
+                      }}
+                    >
+                      <i class="i-ph:x-bold text-zinc-200 size-4" />
+                    </button>
                   </div>
                 </>
               )
