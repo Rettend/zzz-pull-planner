@@ -1,4 +1,5 @@
 import type { Component } from 'solid-js'
+import type { ChannelType } from '~/lib/constants'
 import { createMemo, createSignal, For, Show } from 'solid-js'
 import { BANNERS, isBannerPast } from '~/lib/constants'
 import { computeTwoPhasePlan, emptyPlan } from '~/lib/planner'
@@ -17,7 +18,7 @@ export const TargetPicker: Component = () => {
   const selectedSorted = createMemo(() => [...targets.selected].sort((a, b) => a.priority - b.priority))
   // Expand selected targets into duplicates based on mindscape count
   const selectedTargetsInput = createMemo(() => {
-    const result: Array<{ name: string, channel: 'agent' | 'engine' }> = []
+    const result: Array<{ name: string, channel: ChannelType }> = []
     for (const t of selectedSorted()) {
       const count = t.mindscapeCount + 1 // +1 because M0 = 1 pull, M1 = 2 pulls, etc.
       for (let i = 0; i < count; i++) {

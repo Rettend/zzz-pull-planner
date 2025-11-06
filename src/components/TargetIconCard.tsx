@@ -2,6 +2,10 @@ import type { Component } from 'solid-js'
 import { createMemo, Show } from 'solid-js'
 import { RANK_S_ICON, resolveAgent, resolveAttributeIcon, resolveSpecialtyIcon, resolveWEngine } from '~/lib/constants'
 
+const CARD_WIDTH = 100 // px
+const MINDSCAPE_PANEL_WIDTH = 30 // px
+const CARD_WITH_PANEL_WIDTH = CARD_WIDTH + MINDSCAPE_PANEL_WIDTH // 130px
+
 export const TargetIconCard: Component<{
   name: string
   muted?: boolean
@@ -37,9 +41,9 @@ export const TargetIconCard: Component<{
   })
 
   return (
-    <div class={`group border-2 ${borderClass()} rounded-xl bg-zinc-800/50 ${props.showMindscapeControls ? 'h-100px w-130px' : 'h-100px w-100px'} shadow-sm transition-colors relative ${cursorClass()}  ${props.context === 'selector' && !props.selected ? 'hover:border-emerald-500/70' : ''}`} title={props.name}>
+    <div class={`group border-2 ${borderClass()} rounded-xl bg-zinc-800/50 h-100px shadow-sm transition-colors relative ${cursorClass()}  ${props.context === 'selector' && !props.selected ? 'hover:border-emerald-500/70' : ''}`} style={{ width: props.showMindscapeControls ? `${CARD_WITH_PANEL_WIDTH}px` : `${CARD_WIDTH}px` }} title={props.name}>
       <div class="rounded-inherit inset-0 absolute overflow-hidden">
-        <div class={`${props.showMindscapeControls ? 'w-100px' : 'w-full'} h-full inset-0 absolute`}>
+        <div class="h-full inset-0 absolute" style={{ width: props.showMindscapeControls ? `${CARD_WIDTH}px` : '100%' }}>
           <img src={bg() || ''} alt={props.name} class={`h-full w-full inset-0 absolute object-cover ${props.muted ? 'grayscale brightness-75 opacity-80' : ''}`} />
 
           {/* Rank badge */}
@@ -62,7 +66,7 @@ export const TargetIconCard: Component<{
 
         {/* Mindscape controls panel */}
         <Show when={props.showMindscapeControls}>
-          <div class="py-2 border-l border-zinc-700 bg-zinc-900/90 flex flex-col gap-1 h-full w-30px items-center right-0 top-0 justify-center absolute backdrop-blur-sm">
+          <div class="py-2 border-l border-zinc-700 bg-zinc-900/90 flex flex-col gap-1 h-full items-center right-0 top-0 justify-center absolute backdrop-blur-sm" style={{ width: `${MINDSCAPE_PANEL_WIDTH}px` }}>
             <button
               class="text-emerald-300 p-0.5 rounded transition-colors hover:text-emerald-200 hover:bg-emerald-600/20 disabled:opacity-30 disabled:cursor-not-allowed"
               onClick={(e) => {
