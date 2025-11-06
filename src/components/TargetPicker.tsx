@@ -35,8 +35,27 @@ export const TargetPicker: Component = () => {
       return emptyPlan()
     }
   })
-  const fundedSet = createMemo(() => new Set(plan().fundedTargets))
   const isSelected = (name: string) => targets.selected.some(s => s.name === name)
+
+  // Check if all mindscape levels of a target are funded
+  const isFullyFunded = createMemo(() => {
+    const funded = plan().fundedTargets
+    const fundedCounts = new Map<string, number>()
+
+    // Count how many of each target are funded
+    for (const name of funded) {
+      fundedCounts.set(name, (fundedCounts.get(name) ?? 0) + 1)
+    }
+
+    return (name: string) => {
+      const target = targets.selected.find(t => t.name === name)
+      if (!target)
+        return false
+      const requiredCount = target.mindscapeCount + 1 // M0 = 1, M1 = 2, etc.
+      const fundedCount = fundedCounts.get(name) ?? 0
+      return fundedCount >= requiredCount
+    }
+  })
 
   const [dragIndex, setDragIndex] = createSignal<number | null>(null)
   const [insertIndex, setInsertIndex] = createSignal<number | null>(null)
@@ -156,7 +175,7 @@ export const TargetPicker: Component = () => {
                           context="selector"
                           selected={isSelected(b.featured)}
                           muted={!isSelected(b.featured)}
-                          notMet={isSelected(b.featured) && !fundedSet().has(b.featured)}
+                          notMet={isSelected(b.featured) && !isFullyFunded()(b.featured)}
                           showMindscapeControls={isSelected(b.featured)}
                           mindscapeCount={target()?.mindscapeCount ?? 0}
                           channel={b.type}
