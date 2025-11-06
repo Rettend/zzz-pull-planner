@@ -294,49 +294,6 @@ export default function Home() {
               <CheckboxField label="W-Engine guaranteed" {...boolInput(inputs, actions.setPlannerInput, 'guaranteedEngineStart')} />
             </div>
 
-            <div class="text-sm mt-6 space-y-3">
-              <div class="text-emerald-200 font-semibold">Pull Simulation</div>
-              <div class="flex gap-2 items-center">
-                <button class={`px-2 py-1 border rounded ${currentBannerType() === 'agent' ? 'bg-emerald-600/30 border-emerald-500' : 'bg-zinc-900 border-zinc-700'}`} onClick={() => actions.setCurrentBannerType('agent')}>Agent</button>
-                <button class={`px-2 py-1 border rounded ${currentBannerType() === 'engine' ? 'bg-emerald-600/30 border-emerald-500' : 'bg-zinc-900 border-zinc-700'}`} onClick={() => actions.setCurrentBannerType('engine')}>W-Engine</button>
-              </div>
-              <div class="flex gap-2 items-center">
-                <button
-                  class="px-4 py-2 border border-zinc-700 rounded-md bg-zinc-900 hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                  onClick={() => simulatePull(1)}
-                  disabled={inputs().pullsOnHand < 1}
-                  title="Simulate pulling once"
-                >
-                  Pull 1
-                </button>
-                <button
-                  class="px-4 py-2 border border-zinc-700 rounded-md bg-zinc-900 hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                  onClick={() => simulatePull(10)}
-                  disabled={inputs().pullsOnHand < 10}
-                  title="Simulate pulling 10 times"
-                >
-                  Pull 10
-                </button>
-                <button
-                  class="px-4 py-2 border border-amber-700 rounded-md bg-amber-900/30 hover:bg-amber-800/40 disabled:opacity-50 disabled:cursor-not-allowed"
-                  onClick={onPulledIt}
-                  disabled={!getActiveBannerTarget()}
-                  title="Mark as obtained: resets pity and removes from targets"
-                >
-                  I Pulled It!
-                </button>
-              </div>
-              <div class="text-xs text-zinc-400">
-                {(() => {
-                  const target = getActiveBannerTarget()
-                  if (target) {
-                    return `Current ${currentBannerType() === 'agent' ? 'Agent' : 'W-Engine'} banner: ${target}`
-                  }
-                  return `No active ${currentBannerType()} banner`
-                })()}
-              </div>
-            </div>
-
             <div class="text-sm mt-10 space-y-3">
               <div class="flex flex-wrap gap-2 items-center">
                 <button class={`px-3 py-1.5 border rounded-md ${scenario() === 'p50' ? 'bg-emerald-600/30 border-emerald-500' : 'bg-zinc-900 border-zinc-700'}`} onClick={() => actions.setScenario('p50')}>p50</button>
@@ -378,6 +335,49 @@ export default function Home() {
               </div>
             </div>
 
+          </section>
+
+          <section class="p-4 border border-zinc-700 rounded-xl bg-zinc-800/50 h-fit space-y-4">
+            <h2 class="text-lg text-emerald-300 tracking-wide font-bold">Pull Simulation</h2>
+            <div class="flex gap-2 items-center">
+              <button class={`px-2 py-1 border rounded ${currentBannerType() === 'agent' ? 'bg-emerald-600/30 border-emerald-500' : 'bg-zinc-900 border-zinc-700'}`} onClick={() => actions.setCurrentBannerType('agent')}>Agent</button>
+              <button class={`px-2 py-1 border rounded ${currentBannerType() === 'engine' ? 'bg-emerald-600/30 border-emerald-500' : 'bg-zinc-900 border-zinc-700'}`} onClick={() => actions.setCurrentBannerType('engine')}>W-Engine</button>
+            </div>
+            <div class="flex gap-2 items-center">
+              <button
+                class="px-4 py-2 border border-zinc-700 rounded-md bg-zinc-900 hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => simulatePull(1)}
+                disabled={inputs().pullsOnHand < 1}
+                title="Simulate pulling once"
+              >
+                Pull 1
+              </button>
+              <button
+                class="px-4 py-2 border border-zinc-700 rounded-md bg-zinc-900 hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => simulatePull(10)}
+                disabled={inputs().pullsOnHand < 10}
+                title="Simulate pulling 10 times"
+              >
+                Pull 10
+              </button>
+              <button
+                class="px-4 py-2 border border-amber-700 rounded-md bg-amber-900/30 hover:bg-amber-800/40 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={onPulledIt}
+                disabled={!getActiveBannerTarget()}
+                title="Mark as obtained: resets pity and removes from targets"
+              >
+                I Pulled It!
+              </button>
+            </div>
+            <div class="text-xs text-zinc-400">
+              {(() => {
+                const target = getActiveBannerTarget()
+                if (target) {
+                  return `Current ${currentBannerType() === 'agent' ? 'Agent' : 'W-Engine'} banner: ${target}`
+                }
+                return `No active ${currentBannerType()} banner`
+              })()}
+            </div>
           </section>
 
           <section class="p-4 border border-zinc-700 rounded-xl bg-zinc-800/50 space-y-4">
