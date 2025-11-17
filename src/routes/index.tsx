@@ -7,7 +7,7 @@ import { formatPlanCopyText } from '~/lib/clipboard'
 import { BANNERS } from '~/lib/constants'
 import { computeTwoPhasePlan, emptyPlan } from '~/lib/planner'
 import { useAccountsStore } from '~/stores/accounts'
-import { useTargetsStore } from '~/stores/targets'
+import { aggregateTargets, useTargetsStore } from '~/stores/targets'
 import { useUIStore } from '~/stores/ui'
 import { computeChannelBreakdown, roundToTarget } from '~/utils/plan'
 
@@ -22,8 +22,12 @@ export default function Home() {
   const phase1Timing = () => ui.local.phase1Timing
   const phase2Timing = () => ui.local.phase2Timing
   const luckMode = () => ui.local.plannerInputs.luckMode ?? 'realistic'
-  const orderedTargets = createMemo(() => (targets?.selected ?? []).slice().sort((a, b) => a.priority - b.priority))
-  const selectedTargets = () => orderedTargets().map(t => ({ name: t.name, channel: t.channel }))
+
+  const selectedEntries = createMemo(() => (targets?.selected ?? []).slice().sort((a, b) => a.priority - b.priority))
+  const selectedTargets = () => selectedEntries().map(t => ({ name: t.name, channel: t.channel }))
+  const groupedTargets = createMemo(() => aggregateTargets(selectedEntries()))
+
+  const orderedTargets = selectedEntries
   const currentTarget = createMemo(() => orderedTargets()[0] ?? null)
 
   const plan = createMemo<PhasePlan>(() => {
@@ -35,11 +39,85 @@ export default function Home() {
     }
   })
 
-  const fundedSet = createMemo(() => new Set(plan().fundedTargets))
-  const fundedAgents = createMemo(() => selectedTargets().filter(t => t.channel === 'agent' && fundedSet().has(t.name)).map(t => t.name))
-  const missedAgents = createMemo(() => selectedTargets().filter(t => t.channel === 'agent' && !fundedSet().has(t.name)).map(t => t.name))
-  const fundedEngines = createMemo(() => selectedTargets().filter(t => t.channel === 'engine' && fundedSet().has(t.name)).map(t => t.name))
-  const missedEngines = createMemo(() => selectedTargets().filter(t => t.channel === 'engine' && !fundedSet().has(t.name)).map(t => t.name))
+  const fundedMindscapes = createMemo(() => {
+    const funded = plan().fundedTargets
+    const result = new Map<string, number>()
+
+    for (const name of funded) {
+      const current = result.get(name) ?? -1
+      result.set(name, current + 1)
+    }
+
+    return result
+  })
+
+  const fundedAgents = createMemo(() => {
+    const funded = fundedMindscapes()
+    return groupedTargets()
+      .filter(t => t.channel === 'agent' && funded.has(t.name))
+      .map((t) => {
+        const maxFunded = funded.get(t.name) ?? 0
+        if (maxFunded === 0)
+          return t.name
+        return `${t.name} M${maxFunded}`
+      })
+  })
+
+  const missedAgents = createMemo(() => {
+    const funded = fundedMindscapes()
+    return groupedTargets()
+      .filter((t) => {
+        const desiredMax = t.count - 1
+        const fundedMax = funded.get(t.name) ?? -1
+        return t.channel === 'agent' && desiredMax >= 0 && fundedMax < desiredMax
+      })
+      .map((t) => {
+        const maxFunded = funded.get(t.name) ?? -1
+        const desiredMax = t.count - 1
+        if (maxFunded < 0)
+          return t.name
+        if (desiredMax === 0)
+          return t.name
+        const start = Math.max(0, maxFunded + 1)
+        if (start > desiredMax)
+          return t.name
+        return `${t.name} M${start}-M${desiredMax}`
+      })
+  })
+
+  const fundedEngines = createMemo(() => {
+    const funded = fundedMindscapes()
+    return groupedTargets()
+      .filter(t => t.channel === 'engine' && funded.has(t.name))
+      .map((t) => {
+        const maxFunded = funded.get(t.name) ?? 0
+        if (maxFunded === 0)
+          return t.name
+        return `${t.name} M${maxFunded}`
+      })
+  })
+
+  const missedEngines = createMemo(() => {
+    const funded = fundedMindscapes()
+    return groupedTargets()
+      .filter((t) => {
+        const desiredMax = t.count - 1
+        const fundedMax = funded.get(t.name) ?? -1
+        return desiredMax >= 0 && fundedMax < desiredMax && t.channel === 'engine'
+      })
+      .map((t) => {
+        const maxFunded = funded.get(t.name) ?? -1
+        const desiredMax = t.count - 1
+        if (maxFunded < 0)
+          return t.name
+        if (desiredMax === 0)
+          return t.name
+        const start = Math.max(0, maxFunded + 1)
+        if (start > desiredMax)
+          return t.name
+        return `${t.name} M${start}-M${desiredMax}`
+      })
+  })
 
   const [copied, setCopied] = createSignal(false)
 
