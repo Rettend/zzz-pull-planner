@@ -1,11 +1,10 @@
 import type { JSX } from 'solid-js'
-import type { ChannelType } from '~/lib/constants'
 import type { PhasePlan } from '~/lib/planner'
 import { createMemo, createSignal, For, Show } from 'solid-js'
 import { TargetPicker } from '~/components/TargetPicker'
 import { Badge, boolInput, BudgetBar, CheckboxField, NumberField, numberInput, StatRow } from '~/components/ui'
 import { formatPlanCopyText } from '~/lib/clipboard'
-import { BANNERS, listActiveBanners } from '~/lib/constants'
+import { BANNERS } from '~/lib/constants'
 import { computeTwoPhasePlan, emptyPlan } from '~/lib/planner'
 import { useAccountsStore } from '~/stores/accounts'
 import { useTargetsStore } from '~/stores/targets'
@@ -23,9 +22,9 @@ export default function Home() {
   const phase1Timing = () => ui.local.phase1Timing
   const phase2Timing = () => ui.local.phase2Timing
   const luckMode = () => ui.local.plannerInputs.luckMode ?? 'realistic'
-  const currentBannerType = () => ui.local.currentBannerType
-
-  const selectedTargets = () => (targets?.selected ?? []).slice().sort((a, b) => a.priority - b.priority).map(t => ({ name: t.name, channel: t.channel }))
+  const orderedTargets = createMemo(() => (targets?.selected ?? []).slice().sort((a, b) => a.priority - b.priority))
+  const selectedTargets = () => orderedTargets().map(t => ({ name: t.name, channel: t.channel }))
+  const currentTarget = createMemo(() => orderedTargets()[0] ?? null)
 
   const plan = createMemo<PhasePlan>(() => {
     try {
@@ -143,22 +142,17 @@ export default function Home() {
     }
   }
 
-  function getCurrentActiveBanner(): ChannelType {
-    const activeBanners = listActiveBanners()
-    const bannerOfType = activeBanners.find(b => b.type === currentBannerType())
-    return bannerOfType?.type ?? 'agent'
-  }
-
   function simulatePull(count: 1 | 10) {
+    const target = currentTarget()
+    if (!target)
+      return
     const currentPulls = inputs().pullsOnHand
     if (currentPulls < count) {
       return
     }
-
-    const bannerType = getCurrentActiveBanner()
     actions.setPlannerInput('pullsOnHand', currentPulls - count)
 
-    if (bannerType === 'agent') {
+    if (target.channel === 'agent') {
       const currentPity = inputs().pityAgentStart
       const newPity = Math.min(89, currentPity + count)
       actions.setPlannerInput('pityAgentStart', newPity)
@@ -170,17 +164,12 @@ export default function Home() {
     }
   }
 
-  function getActiveBannerTarget(): string | null {
-    const activeBanners = listActiveBanners()
-    const bannerOfType = activeBanners.find(b => b.type === currentBannerType())
-    return bannerOfType?.featured ?? null
-  }
-
   function onPulledIt() {
-    const bannerType = currentBannerType()
-    const targetName = getActiveBannerTarget()
+    const target = currentTarget()
+    if (!target)
+      return
 
-    if (bannerType === 'agent') {
+    if (target.channel === 'agent') {
       actions.setPlannerInput('pityAgentStart', 0)
       actions.setPlannerInput('guaranteedAgentStart', false)
     }
@@ -189,9 +178,7 @@ export default function Home() {
       actions.setPlannerInput('guaranteedEngineStart', false)
     }
 
-    if (targetName) {
-      targetActions.remove(targetName)
-    }
+    targetActions.remove(target.name)
   }
 
   return (
@@ -549,42 +536,38 @@ export default function Home() {
         <section class="p-4 border border-zinc-700 rounded-xl bg-zinc-800/50 h-fit space-y-4">
           <h2 class="text-lg text-emerald-300 tracking-wide font-bold">Pull Simulation</h2>
           <div class="flex gap-2 items-center">
-            <button class={`px-2 py-1 border rounded ${currentBannerType() === 'agent' ? 'bg-emerald-600/30 border-emerald-500' : 'bg-zinc-900 border-zinc-700'}`} onClick={() => actions.setCurrentBannerType('agent')}>Agent</button>
-            <button class={`px-2 py-1 border rounded ${currentBannerType() === 'engine' ? 'bg-emerald-600/30 border-emerald-500' : 'bg-zinc-900 border-zinc-700'}`} onClick={() => actions.setCurrentBannerType('engine')}>W-Engine</button>
-          </div>
-          <div class="flex gap-2 items-center">
             <button
               class="px-4 py-2 border border-zinc-700 rounded-md bg-zinc-900 hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={() => simulatePull(1)}
-              disabled={inputs().pullsOnHand < 1}
-              title="Simulate pulling once"
+              disabled={inputs().pullsOnHand < 1 || !currentTarget()}
+              title="Simulate pulling once toward your highest priority target"
             >
               Pull 1
             </button>
             <button
               class="px-4 py-2 border border-zinc-700 rounded-md bg-zinc-900 hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={() => simulatePull(10)}
-              disabled={inputs().pullsOnHand < 10}
-              title="Simulate pulling 10 times"
+              disabled={inputs().pullsOnHand < 10 || !currentTarget()}
+              title="Simulate pulling 10 times toward your highest priority target"
             >
               Pull 10
             </button>
             <button
               class="px-4 py-2 border border-amber-700 rounded-md bg-amber-900/30 hover:bg-amber-800/40 disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={onPulledIt}
-              disabled={!getActiveBannerTarget()}
-              title="Mark as obtained: resets pity and removes from targets"
+              disabled={!currentTarget()}
+              title="Mark the current highest priority target as obtained"
             >
               I Pulled It!
             </button>
           </div>
           <div class="text-xs text-zinc-400">
             {(() => {
-              const target = getActiveBannerTarget()
-              if (target) {
-                return `Current ${currentBannerType() === 'agent' ? 'Agent' : 'W-Engine'} banner: ${target}`
-              }
-              return `No active ${currentBannerType()} banner`
+              const target = currentTarget()
+              if (!target)
+                return 'Select a target to enable simulation controls'
+              const channelLabel = target.channel === 'agent' ? 'Agent' : 'W-Engine'
+              return `Next up: ${target.name} (${channelLabel})`
             })()}
           </div>
         </section>

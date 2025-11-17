@@ -1,6 +1,5 @@
 import type { ParentProps } from 'solid-js'
 import type { Store } from 'solid-js/store'
-import type { ChannelType } from '~/lib/constants'
 import type { PlannerInputs, Scenario } from '~/lib/planner'
 import { makePersisted, storageSync } from '@solid-primitives/storage'
 import { createContext, untrack, useContext } from 'solid-js'
@@ -14,7 +13,6 @@ interface UILocalState {
   scenario: Scenario
   phase1Timing: 'start' | 'end'
   phase2Timing: 'start' | 'end'
-  currentBannerType: ChannelType
 }
 
 type UIStoreState = UIState & {
@@ -26,7 +24,6 @@ interface UIStoreActions {
   setScenario: (scenario: UILocalState['scenario']) => void
   setPhase1Timing: (t: 'start' | 'end') => void
   setPhase2Timing: (t: 'start' | 'end') => void
-  setCurrentBannerType: (t: ChannelType) => void
   resetPlannerInputs: () => void
 }
 
@@ -54,7 +51,6 @@ export function UIStoreProvider(props: ParentProps<{ accountId: string }>) {
     scenario: 'p60',
     phase1Timing: 'end',
     phase2Timing: 'end',
-    currentBannerType: 'agent',
   })
   const storageKey = untrack(() => `ui:${props.accountId}`)
   const [local, setLocal] = makePersisted([baseLocal, setBaseLocal], {
@@ -75,9 +71,6 @@ export function UIStoreProvider(props: ParentProps<{ accountId: string }>) {
     },
     setPhase2Timing: (t) => {
       setLocal('phase2Timing', t)
-    },
-    setCurrentBannerType: (t) => {
-      setLocal('currentBannerType', t)
     },
     resetPlannerInputs: () => {
       setLocal('plannerInputs', defaultPlannerInputs)
