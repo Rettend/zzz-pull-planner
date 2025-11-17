@@ -17,11 +17,11 @@ export default function Home() {
   const [targets, targetActions] = useTargetsStore()
   const [editingId, setEditingId] = createSignal<string | null>(null)
   const [editingValue, setEditingValue] = createSignal('')
-  const inputs = () => ui.local.plannerInputs
-  const scenario = () => ui.local.scenario
-  const phase1Timing = () => ui.local.phase1Timing
-  const phase2Timing = () => ui.local.phase2Timing
-  const luckMode = () => ui.local.plannerInputs.luckMode ?? 'realistic'
+  const inputs = createMemo(() => ui.local.plannerInputs)
+  const scenario = createMemo(() => ui.local.scenario)
+  const phase1Timing = createMemo(() => ui.local.phase1Timing)
+  const phase2Timing = createMemo(() => ui.local.phase2Timing)
+  const luckMode = createMemo(() => ui.local.plannerInputs.luckMode ?? 'realistic')
 
   const selectedEntries = createMemo(() => (targets?.selected ?? []).slice().sort((a, b) => a.priority - b.priority))
   const selectedTargets = () => selectedEntries().map(t => ({ name: t.name, channel: t.channel }))
@@ -256,7 +256,7 @@ export default function Home() {
       actions.setPlannerInput('guaranteedEngineStart', false)
     }
 
-    targetActions.remove(target.name)
+    targetActions.removeEntry(target.id)
   }
 
   return (
