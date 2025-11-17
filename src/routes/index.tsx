@@ -21,6 +21,11 @@ export default function Home() {
   const selectedEntries = createMemo(() => (targets?.selected ?? []).slice().sort((a, b) => a.priority - b.priority))
   const selectedTargets = createMemo<SelectedTargetInput[]>(() => selectedEntries().map(t => ({ name: t.name, channel: t.channel })))
   const groupedTargets = createMemo(() => aggregateTargets(selectedEntries()))
+  const currentEntry = createMemo(() => selectedEntries()[0] ?? null)
+  const currentTarget = createMemo<SelectedTargetInput | null>(() => {
+    const entry = currentEntry()
+    return entry ? { name: entry.name, channel: entry.channel } : null
+  })
 
   const plan = createMemo<PhasePlan>(() => {
     try {
@@ -31,11 +36,9 @@ export default function Home() {
     }
   })
 
-  const currentTarget = createMemo(() => selectedTargets()[0] ?? null)
-
   function simulatePull(count: 1 | 10) {
-    const target = untrack(currentTarget)
-    if (!target)
+    const targetEntry = untrack(currentEntry)
+    if (!targetEntry)
       return
     const currentInputs = untrack(inputs)
     if (currentInputs.pullsOnHand < count)
@@ -45,7 +48,7 @@ export default function Home() {
       pullsOnHand: currentInputs.pullsOnHand - count,
     }
 
-    if (target.channel === 'agent') {
+    if (targetEntry.channel === 'agent') {
       updates.pityAgentStart = Math.min(89, currentInputs.pityAgentStart + count)
     }
     else {
@@ -56,12 +59,12 @@ export default function Home() {
   }
 
   function onPulledIt() {
-    const target = untrack(currentTarget)
-    if (!target)
+    const targetEntry = untrack(currentEntry)
+    if (!targetEntry)
       return
 
     batch(() => {
-      if (target.channel === 'agent') {
+      if (targetEntry.channel === 'agent') {
         actions.setPlannerInputs({
           pityAgentStart: 0,
           guaranteedAgentStart: false,
@@ -73,7 +76,7 @@ export default function Home() {
           guaranteedEngineStart: false,
         })
       }
-      targetActions.removeEntry(target.name)
+      targetActions.removeEntry(targetEntry.id)
     })
   }
 
