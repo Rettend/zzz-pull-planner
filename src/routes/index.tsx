@@ -7,7 +7,7 @@ import { formatPlanCopyText } from '~/lib/clipboard'
 import { BANNERS } from '~/lib/constants'
 import { computeTwoPhasePlan, emptyPlan } from '~/lib/planner'
 import { useAccountsStore } from '~/stores/accounts'
-import { useTargetsStore } from '~/stores/targets'
+import { aggregateTargets, useTargetsStore } from '~/stores/targets'
 import { useUIStore } from '~/stores/ui'
 import { computeChannelBreakdown, roundToTarget } from '~/utils/plan'
 
@@ -23,22 +23,11 @@ export default function Home() {
   const phase2Timing = () => ui.local.phase2Timing
   const luckMode = () => ui.local.plannerInputs.luckMode ?? 'realistic'
 
-  // Get selected targets sorted by priority
-  const selectedSorted = () => (targets?.selected ?? []).slice().sort((a, b) => a.priority - b.priority)
+  const selectedEntries = createMemo(() => (targets?.selected ?? []).slice().sort((a, b) => a.priority - b.priority))
+  const selectedTargets = () => selectedEntries().map(t => ({ name: t.name, channel: t.channel }))
+  const groupedTargets = createMemo(() => aggregateTargets(selectedEntries()))
 
-  // Expand selected targets into duplicates based on mindscape count
-  const selectedTargets = () => {
-    const result: Array<{ name: string, channel: 'agent' | 'engine' }> = []
-    for (const t of selectedSorted()) {
-      const count = t.mindscapeCount + 1 // +1 because M0 = 1 pull, M1 = 2 pulls, etc.
-      for (let i = 0; i < count; i++) {
-        result.push({ name: t.name, channel: t.channel })
-      }
-    }
-    return result
-  }
-
-  const orderedTargets = createMemo(() => (targets?.selected ?? []).slice().sort((a, b) => a.priority - b.priority))
+  const orderedTargets = selectedEntries
   const currentTarget = createMemo(() => orderedTargets()[0] ?? null)
 
   const plan = createMemo<PhasePlan>(() => {
@@ -50,10 +39,9 @@ export default function Home() {
     }
   })
 
-  // Calculate which mindscape levels are funded for each target
   const fundedMindscapes = createMemo(() => {
     const funded = plan().fundedTargets
-    const result = new Map<string, number>() // name -> highest funded mindscape
+    const result = new Map<string, number>()
 
     for (const name of funded) {
       const current = result.get(name) ?? -1
@@ -65,7 +53,7 @@ export default function Home() {
 
   const fundedAgents = createMemo(() => {
     const funded = fundedMindscapes()
-    return selectedSorted()
+    return groupedTargets()
       .filter(t => t.channel === 'agent' && funded.has(t.name))
       .map((t) => {
         const maxFunded = funded.get(t.name) ?? 0
@@ -77,22 +65,29 @@ export default function Home() {
 
   const missedAgents = createMemo(() => {
     const funded = fundedMindscapes()
-    return selectedSorted()
-      .filter(t => t.channel === 'agent' && (!funded.has(t.name) || (funded.get(t.name) ?? 0) < t.mindscapeCount))
+    return groupedTargets()
+      .filter((t) => {
+        const desiredMax = t.count - 1
+        const fundedMax = funded.get(t.name) ?? -1
+        return t.channel === 'agent' && desiredMax >= 0 && fundedMax < desiredMax
+      })
       .map((t) => {
         const maxFunded = funded.get(t.name) ?? -1
-        const remaining = t.mindscapeCount - maxFunded
-        if (remaining === t.mindscapeCount + 1)
+        const desiredMax = t.count - 1
+        if (maxFunded < 0)
           return t.name
-        if (t.mindscapeCount === 0)
+        if (desiredMax === 0)
           return t.name
-        return `${t.name} M${maxFunded + 1}-M${t.mindscapeCount}`
+        const start = Math.max(0, maxFunded + 1)
+        if (start > desiredMax)
+          return t.name
+        return `${t.name} M${start}-M${desiredMax}`
       })
   })
 
   const fundedEngines = createMemo(() => {
     const funded = fundedMindscapes()
-    return selectedSorted()
+    return groupedTargets()
       .filter(t => t.channel === 'engine' && funded.has(t.name))
       .map((t) => {
         const maxFunded = funded.get(t.name) ?? 0
@@ -104,16 +99,23 @@ export default function Home() {
 
   const missedEngines = createMemo(() => {
     const funded = fundedMindscapes()
-    return selectedSorted()
-      .filter(t => t.channel === 'engine' && (!funded.has(t.name) || (funded.get(t.name) ?? 0) < t.mindscapeCount))
+    return groupedTargets()
+      .filter((t) => {
+        const desiredMax = t.count - 1
+        const fundedMax = funded.get(t.name) ?? -1
+        return desiredMax >= 0 && fundedMax < desiredMax && t.channel === 'engine'
+      })
       .map((t) => {
         const maxFunded = funded.get(t.name) ?? -1
-        const remaining = t.mindscapeCount - maxFunded
-        if (remaining === t.mindscapeCount + 1)
+        const desiredMax = t.count - 1
+        if (maxFunded < 0)
           return t.name
-        if (t.mindscapeCount === 0)
+        if (desiredMax === 0)
           return t.name
-        return `${t.name} M${maxFunded + 1}-M${t.mindscapeCount}`
+        const start = Math.max(0, maxFunded + 1)
+        if (start > desiredMax)
+          return t.name
+        return `${t.name} M${start}-M${desiredMax}`
       })
   })
 

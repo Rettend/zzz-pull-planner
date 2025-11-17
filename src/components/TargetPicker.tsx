@@ -1,9 +1,10 @@
 import type { Component } from 'solid-js'
 import type { ChannelType } from '~/lib/constants'
-import { createMemo, createSignal, For, Show } from 'solid-js'
+import type { TargetAggregate } from '~/stores/targets'
+import { createMemo, createSignal, For, Show, untrack } from 'solid-js'
 import { BANNERS, isBannerPast } from '~/lib/constants'
 import { computeTwoPhasePlan, emptyPlan } from '~/lib/planner'
-import { useTargetsStore } from '~/stores/targets'
+import { aggregateTargets, useTargetsStore } from '~/stores/targets'
 import { useUIStore } from '~/stores/ui'
 import { TargetIconCard } from './TargetIconCard'
 
@@ -15,18 +16,15 @@ export const TargetPicker: Component = () => {
   const scenario = () => ui.local.scenario
 
   const ranges = createMemo(() => [...new Set(BANNERS.filter(b => !isBannerPast(b)).map(b => `${b.start} → ${b.end}`))])
-  const selectedSorted = createMemo(() => [...targets.selected].sort((a, b) => a.priority - b.priority))
-  // Expand selected targets into duplicates based on mindscape count
-  const selectedTargetsInput = createMemo(() => {
-    const result: Array<{ name: string, channel: ChannelType }> = []
-    for (const t of selectedSorted()) {
-      const count = t.mindscapeCount + 1 // +1 because M0 = 1 pull, M1 = 2 pulls, etc.
-      for (let i = 0; i < count; i++) {
-        result.push({ name: t.name, channel: t.channel })
-      }
-    }
-    return result
+  const selectedEntries = createMemo(() => [...targets.selected].sort((a, b) => a.priority - b.priority))
+  const aggregatedSelected = createMemo(() => aggregateTargets(selectedEntries()))
+  const aggregatedMap = createMemo(() => {
+    const map = new Map<string, TargetAggregate>()
+    for (const entry of aggregatedSelected())
+      map.set(entry.name, entry)
+    return map
   })
+  const selectedTargetsInput = createMemo(() => selectedEntries().map(t => ({ name: t.name, channel: t.channel })))
   const plan = createMemo(() => {
     try {
       return computeTwoPhasePlan(inputs(), scenario(), selectedTargetsInput())
@@ -35,23 +33,22 @@ export const TargetPicker: Component = () => {
       return emptyPlan()
     }
   })
-  const isSelected = (name: string) => targets.selected.some(s => s.name === name)
+  const isSelected = (name: string) => untrack(() => aggregatedMap().has(name))
+  const findAggregate = (name: string) => untrack(() => aggregatedMap().get(name))
 
-  // Check if all mindscape levels of a target are funded
   const isFullyFunded = createMemo(() => {
     const funded = plan().fundedTargets
     const fundedCounts = new Map<string, number>()
 
-    // Count how many of each target are funded
     for (const name of funded) {
       fundedCounts.set(name, (fundedCounts.get(name) ?? 0) + 1)
     }
 
     return (name: string) => {
-      const target = targets.selected.find(t => t.name === name)
+      const target = findAggregate(name)
       if (!target)
         return false
-      const requiredCount = target.mindscapeCount + 1 // M0 = 1, M1 = 2, etc.
+      const requiredCount = target.count
       const fundedCount = fundedCounts.get(name) ?? 0
       return fundedCount >= requiredCount
     }
@@ -72,7 +69,7 @@ export const TargetPicker: Component = () => {
   })
   const nonDraggedCount = createMemo(() => {
     const d = dragIndex()
-    const n = selectedSorted().length
+    const n = selectedEntries().length
     return d == null ? n : Math.max(0, n - 1)
   })
 
@@ -100,7 +97,7 @@ export const TargetPicker: Component = () => {
     if (e.dataTransfer)
       e.dataTransfer.dropEffect = 'move'
     if (dragIndex() != null && insertIndex() == null)
-      setInsertIndex(selectedSorted().length)
+      setInsertIndex(selectedEntries().length)
   }
 
   function onSelectedDrop(e: DragEvent) {
@@ -150,6 +147,31 @@ export const TargetPicker: Component = () => {
     )
   }
 
+  function handleIncrement(name: string, channel: ChannelType) {
+    if (!isSelected(name)) {
+      actions.add({ name, channel })
+      return
+    }
+
+    actions.incrementMindscape(name)
+  }
+
+  function handleDecrement(name: string) {
+    if (!isSelected(name))
+      return
+
+    const target = findAggregate(name)
+    if (!target)
+      return
+
+    if (target.count <= 1) {
+      actions.remove(name)
+      return
+    }
+
+    actions.decrementMindscape(name)
+  }
+
   return (
     <div class="gap-4 grid lg:grid-cols-2">
       {/* Selector */}
@@ -158,10 +180,10 @@ export const TargetPicker: Component = () => {
           {range => (
             <div class="space-y-2">
               <div class="text-sm text-emerald-200 font-semibold">{range}</div>
-              <div class="gap-3 grid grid-cols-2 lg:grid-cols-3 md:grid-cols-3 sm:grid-cols-2">
+              <div class="gap-3 grid grid-cols-2 lg:grid-cols-3 md:grid-cols-4 xl:grid-cols-4">
                 <For each={BANNERS.filter(b => !isBannerPast(b) && `${b.start} → ${b.end}` === range)}>
                   {(b) => {
-                    const target = () => targets.selected.find(s => s.name === b.featured)
+                    const target = () => findAggregate(b.featured)
                     return (
                       <button
                         class="text-left"
@@ -176,11 +198,11 @@ export const TargetPicker: Component = () => {
                           selected={isSelected(b.featured)}
                           muted={!isSelected(b.featured)}
                           notMet={isSelected(b.featured) && !isFullyFunded()(b.featured)}
-                          showMindscapeControls={isSelected(b.featured)}
-                          mindscapeCount={target()?.mindscapeCount ?? 0}
+                          showMindscapeControls
+                          mindscapeLevel={target() ? target()!.count - 1 : undefined}
                           channel={b.type}
-                          onIncrementMindscape={() => actions.incrementMindscape(b.featured)}
-                          onDecrementMindscape={() => actions.decrementMindscape(b.featured)}
+                          onIncrementMindscape={() => handleIncrement(b.featured, b.type)}
+                          onDecrementMindscape={() => handleDecrement(b.featured)}
                         />
                       </button>
                     )
@@ -192,15 +214,15 @@ export const TargetPicker: Component = () => {
         </For>
       </div>
 
-      {/* Selected - showing duplicates as independent cards */}
+      {/* Selected */}
       <div class="space-y-2">
-        <div class="text-sm text-emerald-200 font-semibold">Priority List (duplicates shown)</div>
+        <div class="text-sm text-emerald-200 font-semibold">Priority List</div>
         <div
           class="flex flex-wrap gap-3 items-start"
-          onDragOver={e => onSelectedDragOver(e as unknown as DragEvent)}
-          onDrop={e => onSelectedDrop(e as unknown as DragEvent)}
+          onDragOver={e => onSelectedDragOver(e)}
+          onDrop={e => onSelectedDrop(e)}
         >
-          <For each={selectedSorted()}>
+          <For each={selectedEntries()}>
             {(t, i) => {
               const beforeIndex = () => {
                 const d = dragIndex()
@@ -219,7 +241,6 @@ export const TargetPicker: Component = () => {
                   return i() === d
                 return ni === beforeIndex()
               }
-              const duplicateCount = () => t.mindscapeCount + 1
               return (
                 <>
                   <Show when={showBefore()}>
@@ -229,36 +250,28 @@ export const TargetPicker: Component = () => {
                   <div
                     class="relative"
                     draggable
-                    onDragStart={e => onDragStart(e as unknown as DragEvent, i())}
+                    onDragStart={e => onDragStart(e, i())}
                     onDragEnd={onDragEnd}
-                    onDragOver={e => onCardDragOver(e as unknown as DragEvent, i())}
+                    onDragOver={e => onCardDragOver(e, i())}
                     style={{ display: isDragged() && dragActive() ? 'none' : undefined }}
                   >
-                    {/* Show duplicates as separate cards */}
-                    <div class="flex flex-wrap gap-2">
-                      <For each={Array.from({ length: duplicateCount() })}>
-                        {(_, dupIndex) => (
-                          <div class="relative">
-                            <TargetIconCard
-                              name={t.name}
-                              channel={t.channel}
-                            />
-                            {/* Show mindscape label on each duplicate */}
-                            <div class="text-xs text-emerald-200 font-bold px-1.5 py-0.5 border border-zinc-700 rounded bg-zinc-900/90 bottom-1 left-1 absolute backdrop-blur-sm">
-                              M
-                              {dupIndex()}
-                            </div>
-                          </div>
-                        )}
-                      </For>
+                    <div class="relative">
+                      <TargetIconCard
+                        name={t.name}
+                        channel={t.channel}
+                        context="selected"
+                      />
+                      <div class="text-xs text-emerald-200 font-bold px-1.5 py-0.5 border border-zinc-700 rounded bg-zinc-900/90 bottom-1 left-1 absolute backdrop-blur-sm">
+                        M
+                        {t.mindscape}
+                      </div>
                     </div>
-                    {/* Remove button for the entire group */}
                     <button
                       class="p-1 border border-zinc-700 rounded-full bg-zinc-900/90 opacity-0 flex size-8 shadow transition-opacity items-center justify-center absolute hover:border-red-500 hover:bg-red-600/80 group-hover:opacity-100 -right-2 -top-2"
-                      aria-label="Remove"
+                      aria-label="Remove mindscape"
                       onClick={(e) => {
                         e.stopPropagation()
-                        actions.remove(t.name)
+                        actions.removeEntry(t.id)
                       }}
                     >
                       <i class="i-ph:x-bold text-zinc-200 size-4" />

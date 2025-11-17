@@ -14,7 +14,7 @@ export const TargetIconCard: Component<{
   context?: 'selector' | 'selected'
   selected?: boolean
   notMet?: boolean
-  mindscapeCount?: number
+  mindscapeLevel?: number
   onIncrementMindscape?: () => void
   onDecrementMindscape?: () => void
   channel?: 'agent' | 'engine'
@@ -36,9 +36,13 @@ export const TargetIconCard: Component<{
   const cursorClass = createMemo(() => props.context === 'selector' ? 'cursor-pointer' : (props.muted ? 'hover:border-emerald-500/70' : 'cursor-grab'))
   const maxMindscape = createMemo(() => props.channel === 'agent' ? 6 : 5)
   const mindscapeLabel = createMemo(() => {
-    const count = props.mindscapeCount ?? 0
-    return count === 0 ? 'M0' : `M${count}`
+    if (!props.selected)
+      return '-'
+    const level = props.mindscapeLevel ?? 0
+    return `M${level}`
   })
+  const disableIncrement = createMemo(() => props.selected ? (props.mindscapeLevel ?? 0) >= maxMindscape() : false)
+  const disableDecrement = createMemo(() => !props.selected)
 
   return (
     <div class={`group border-2 ${borderClass()} rounded-xl bg-zinc-800/50 h-100px shadow-sm transition-colors relative ${cursorClass()}  ${props.context === 'selector' && !props.selected ? 'hover:border-emerald-500/70' : ''}`} style={{ width: props.showMindscapeControls ? `${CARD_WITH_PANEL_WIDTH}px` : `${CARD_WIDTH}px` }} title={props.name}>
@@ -73,7 +77,7 @@ export const TargetIconCard: Component<{
                 e.stopPropagation()
                 props.onIncrementMindscape?.()
               }}
-              disabled={(props.mindscapeCount ?? 0) >= maxMindscape()}
+              disabled={disableIncrement()}
               title="Increase mindscape"
             >
               <i class="i-ph:plus-bold text-xs" />
@@ -87,7 +91,7 @@ export const TargetIconCard: Component<{
                 e.stopPropagation()
                 props.onDecrementMindscape?.()
               }}
-              disabled={(props.mindscapeCount ?? 0) <= 0}
+              disabled={disableDecrement()}
               title="Decrease mindscape"
             >
               <i class="i-ph:minus-bold text-xs" />
