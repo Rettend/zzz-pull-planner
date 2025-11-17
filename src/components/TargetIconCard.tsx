@@ -72,7 +72,7 @@ export const TargetIconCard: Component<{
         <Show when={props.showMindscapeControls}>
           <div class="py-2 border-l border-zinc-700 bg-zinc-900/90 flex flex-col gap-1 h-full items-center right-0 top-0 justify-center absolute backdrop-blur-sm" style={{ width: `${MINDSCAPE_PANEL_WIDTH}px` }}>
             <button
-              class="text-emerald-300 p-0.5 rounded transition-colors hover:text-emerald-200 hover:bg-emerald-600/20 disabled:opacity-30 disabled:cursor-not-allowed"
+              class="text-emerald-300 px-0.5 py-1.5 rounded flex w-full transition-colors items-center justify-center hover:text-emerald-200 hover:bg-emerald-600/20 disabled:opacity-30 disabled:cursor-not-allowed"
               onClick={(e) => {
                 e.stopPropagation()
                 props.onIncrementMindscape?.()
@@ -86,7 +86,7 @@ export const TargetIconCard: Component<{
               {mindscapeLabel()}
             </div>
             <button
-              class="text-emerald-300 p-0.5 rounded transition-colors hover:text-emerald-200 hover:bg-emerald-600/20 disabled:opacity-30 disabled:cursor-not-allowed"
+              class="text-emerald-300 px-0.5 py-1.5 rounded flex w-full transition-colors items-center justify-center hover:text-emerald-200 hover:bg-emerald-600/20 disabled:opacity-30 disabled:cursor-not-allowed"
               onClick={(e) => {
                 e.stopPropagation()
                 props.onDecrementMindscape?.()

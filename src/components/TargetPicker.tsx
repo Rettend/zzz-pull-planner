@@ -1,7 +1,7 @@
 import type { Component } from 'solid-js'
 import type { ChannelType } from '~/lib/constants'
 import type { TargetAggregate } from '~/stores/targets'
-import { createMemo, createSignal, For, Show, untrack } from 'solid-js'
+import { createMemo, createSignal, For, Show } from 'solid-js'
 import { BANNERS, isBannerPast } from '~/lib/constants'
 import { computeTwoPhasePlan, emptyPlan } from '~/lib/planner'
 import { aggregateTargets, useTargetsStore } from '~/stores/targets'
@@ -33,8 +33,8 @@ export const TargetPicker: Component = () => {
       return emptyPlan()
     }
   })
-  const isSelected = (name: string) => untrack(() => aggregatedMap().has(name))
-  const findAggregate = (name: string) => untrack(() => aggregatedMap().get(name))
+  const isSelected = (name: string) => aggregatedMap().has(name)
+  const findAggregate = (name: string) => aggregatedMap().get(name)
 
   const isFullyFunded = createMemo(() => {
     const funded = plan().fundedTargets
@@ -44,8 +44,10 @@ export const TargetPicker: Component = () => {
       fundedCounts.set(name, (fundedCounts.get(name) ?? 0) + 1)
     }
 
+    const aggregates = aggregatedMap()
+
     return (name: string) => {
-      const target = findAggregate(name)
+      const target = aggregates.get(name)
       if (!target)
         return false
       const requiredCount = target.count
