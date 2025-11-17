@@ -567,6 +567,21 @@ export default function Home() {
           </section>
         </div>
       </div>
+      <footer class="text-sm text-zinc-400 mt-12 pt-6 border-t border-zinc-800">
+        <div class="mx-auto flex flex-col gap-3 max-w-7xl sm:flex-row sm:items-center sm:justify-between">
+          <span class="text-xs text-zinc-500 tracking-[0.2em] uppercase">ZZZ Pull Planner</span>
+          <a
+            href="https://github.com/Rettend/zzz-pull-planner"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="text-zinc-300 inline-flex gap-2 items-center hover:text-emerald-300"
+            title="View the project on GitHub"
+          >
+            <i class="i-ph:github-logo text-xl" />
+            <span>Source on GitHub</span>
+          </a>
+        </div>
+      </footer>
     </main>
   )
 }
