@@ -1,0 +1,292 @@
+import type { Accessor } from 'solid-js'
+import type { SelectedTargetInput } from '~/lib/plan-view'
+import type { PhasePlan, PlannerInputs, Scenario } from '~/lib/planner'
+import type { TargetAggregate } from '~/stores/targets'
+import { createMemo, createSignal, Show } from 'solid-js'
+import { Badge, BudgetBar, StatRow } from '~/components/ui'
+import { formatPlanCopyText } from '~/lib/clipboard'
+import { buildPhaseRanges, calculateDisplayedCost, channelBreakdownParts, computeFundingSummary, createFundedMindscapes } from '~/lib/plan-view'
+import { ChannelCostRow } from './ChannelCostRow'
+import { PhaseHeader } from './PhaseHeader'
+
+const PHASE_RANGES = buildPhaseRanges()
+
+interface PlanOverviewProps {
+  plan: Accessor<PhasePlan>
+  inputs: Accessor<PlannerInputs>
+  scenario: Accessor<Scenario>
+  selectedTargets: Accessor<SelectedTargetInput[]>
+  groupedTargets: Accessor<TargetAggregate[]>
+  phase1Timing: Accessor<'start' | 'end'>
+  phase2Timing: Accessor<'start' | 'end'>
+  onPhase1TimingChange: (value: 'start' | 'end') => void
+  onPhase2TimingChange: (value: 'start' | 'end') => void
+}
+
+export function PlanOverview(props: PlanOverviewProps) {
+  const [copied, setCopied] = createSignal(false)
+
+  const phase1 = createMemo(() => props.plan().phase1)
+  const phase2 = createMemo(() => props.plan().phase2)
+  const totals = createMemo(() => props.plan().totals)
+
+  const fundedMindscapes = createMemo(() => createFundedMindscapes(props.plan()))
+  const agentFunding = createMemo(() => computeFundingSummary({
+    groupedTargets: props.groupedTargets(),
+    funded: fundedMindscapes(),
+    channel: 'agent',
+  }))
+  const engineFunding = createMemo(() => computeFundingSummary({
+    groupedTargets: props.groupedTargets(),
+    funded: fundedMindscapes(),
+    channel: 'engine',
+  }))
+
+  const selectedCounts = createMemo(() => {
+    const selected = props.selectedTargets()
+    return {
+      agents: selected.filter(t => t.channel === 'agent').length,
+      engines: selected.filter(t => t.channel === 'engine').length,
+    }
+  })
+
+  const commonParams = createMemo(() => ({
+    plan: props.plan(),
+    scenario: props.scenario(),
+    inputs: props.inputs(),
+    selectedTargets: props.selectedTargets(),
+    ranges: PHASE_RANGES,
+  }))
+
+  const displayedCosts = createMemo(() => {
+    const common = commonParams()
+    return {
+      phase1: {
+        agent: calculateDisplayedCost({ ...common, phase: 1, channel: 'agent' }),
+        engine: calculateDisplayedCost({ ...common, phase: 1, channel: 'engine' }),
+      },
+      phase2: {
+        agent: calculateDisplayedCost({ ...common, phase: 2, channel: 'agent' }),
+        engine: calculateDisplayedCost({ ...common, phase: 2, channel: 'engine' }),
+      },
+    }
+  })
+
+  const breakdowns = createMemo(() => {
+    const common = commonParams()
+    const costs = displayedCosts()
+    return {
+      phase1Agent: channelBreakdownParts({ ...common, phase: 1, channel: 'agent', displayedTotal: costs.phase1.agent }),
+      phase1Engine: channelBreakdownParts({ ...common, phase: 1, channel: 'engine', displayedTotal: costs.phase1.engine }),
+      phase2Agent: channelBreakdownParts({ ...common, phase: 2, channel: 'agent', displayedTotal: costs.phase2.agent }),
+      phase2Engine: channelBreakdownParts({ ...common, phase: 2, channel: 'engine', displayedTotal: costs.phase2.engine }),
+    }
+  })
+
+  const missedTargets = createMemo(() => [...agentFunding().missed, ...engineFunding().missed])
+
+  async function onCopy() {
+    try {
+      const text = formatPlanCopyText(props.inputs(), props.scenario(), props.selectedTargets(), props.plan())
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText)
+        await navigator.clipboard.writeText(text)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    }
+    catch {
+      setCopied(false)
+    }
+  }
+
+  const phase1Success = () => (props.phase1Timing() === 'start' ? (phase1().successProbStart ?? 0) : (phase1().successProbEnd ?? 0))
+  const phase2Success = () => (props.phase2Timing() === 'start' ? (phase2().successProbStart ?? 0) : (phase2().successProbEnd ?? 0))
+
+  return (
+    <section class="p-4 border border-zinc-700 rounded-xl bg-zinc-800/50 space-y-4">
+      <h2 class="text-lg text-emerald-300 tracking-wide font-bold">Plan</h2>
+      <div class="gap-4 grid">
+        <div class="text-sm text-zinc-300 flex items-center justify-between">
+          <div>
+            Scenario:
+            {' '}
+            <span class="text-emerald-300">{props.scenario()}</span>
+          </div>
+          <div class="flex gap-2 items-center">
+            <Badge
+              ok={props.plan().totals.agentsGot >= selectedCounts().agents}
+              label={`${props.plan().totals.agentsGot} Agents`}
+              title="How many Agents from your selection are affordable across both phases"
+            />
+            <Badge
+              ok={props.plan().totals.enginesGot >= selectedCounts().engines}
+              label={`${props.plan().totals.enginesGot} Engines`}
+              title="How many W-Engines from your selection are affordable across both phases"
+            />
+            <Badge label={`${Math.round(props.plan().totals.pullsLeftEnd)} left`} title="Estimated pulls remaining at the end of Phase 2" />
+            <button
+              class="px-3 py-1.5 border border-zinc-700 rounded-md bg-zinc-900 inline-flex gap-2 items-center hover:bg-zinc-800"
+              onClick={onCopy}
+              title="Copy inputs, ordered targets, and plan summary"
+            >
+              <i class={`size-4 ${copied() ? 'i-ph:check-bold' : 'i-ph:clipboard-text-duotone'}`} />
+              Copy
+            </button>
+          </div>
+        </div>
+
+        <div class="p-3 border border-zinc-700 rounded-lg bg-zinc-900/40 space-y-3">
+          <PhaseHeader
+            title="Phase 1"
+            budget={Math.round(props.phase1Timing() === 'start' ? phase1().startBudget : phase1().endBudget)}
+            success={phase1Success()}
+            timing={props.phase1Timing()}
+            onTimingChange={props.onPhase1TimingChange}
+          />
+
+          <BudgetBar
+            total={props.phase1Timing() === 'start' ? phase1().startBudget : phase1().endBudget}
+            segments={[
+              { value: phase1().agentCost, color: 'bg-emerald-600/70', label: 'Agents', title: 'Phase 1 Agents cost' },
+              { value: props.phase1Timing() === 'start' ? phase1().engineSpendStart : phase1().engineSpendEnd, color: 'bg-sky-600/70', label: 'Engines', title: 'Phase 1 Engines spend this phase' },
+              { value: props.phase1Timing() === 'start' ? phase1().carryToPhase2Start : phase1().carryToPhase2End, color: 'bg-zinc-700', label: 'Carry', title: 'Pulls carried to Phase 2' },
+            ]}
+          />
+
+          <ul class="gap-x-3 gap-y-1 grid" style={{ 'grid-template-columns': '12rem 2rem 8rem auto' }}>
+            <ChannelCostRow
+              label="Agents cost"
+              value={displayedCosts().phase1.agent}
+              affordable={props.phase1Timing() === 'start' ? phase1().canAffordAgentStart : phase1().canAffordAgentEnd}
+              pityLabel={`-${Math.max(0, props.inputs().pityAgentStart)}`}
+              explanation={breakdowns().phase1Agent}
+              title="Aggregated cost to secure Phase 1 selected Agents"
+            />
+            <ChannelCostRow
+              label="Engines cost"
+              value={displayedCosts().phase1.engine}
+              affordable={props.phase1Timing() === 'start' ? phase1().canAffordEngineStart : phase1().canAffordEngineEnd}
+              pityLabel={`-${Math.max(0, props.inputs().pityEngineStart)}`}
+              explanation={breakdowns().phase1Engine}
+              title="Aggregated cost to secure Phase 1 selected Engines"
+            />
+            <StatRow
+              label="Reserve for Phase 2"
+              value={<span class="text-amber-300">{Math.round(phase1().reserveForPhase2)}</span>}
+              title="Minimum pulls to keep reserved at end of Phase 1 for Phase 2 targets"
+            />
+            <StatRow
+              label="Carry to Phase 2"
+              value={props.phase1Timing() === 'start' ? phase1().carryToPhase2Start : phase1().carryToPhase2End}
+              badge={{
+                ok: (props.phase1Timing() === 'start' ? phase1().carryToPhase2Start : phase1().carryToPhase2End) >= phase1().reserveForPhase2,
+                label: (props.phase1Timing() === 'start' ? phase1().carryToPhase2Start : phase1().carryToPhase2End) >= phase1().reserveForPhase2 ? 'meets reserve' : 'below reserve',
+              }}
+              title="Estimated pulls remaining after Phase 1"
+            />
+          </ul>
+        </div>
+
+        <div class="p-3 border border-zinc-700 rounded-lg bg-zinc-900/40 space-y-3">
+          <PhaseHeader
+            title="Phase 2"
+            budget={Math.round(props.phase2Timing() === 'start' ? phase2().startBudget : phase2().endBudget)}
+            success={phase2Success()}
+            timing={props.phase2Timing()}
+            onTimingChange={props.onPhase2TimingChange}
+          />
+
+          <BudgetBar
+            total={props.phase2Timing() === 'start' ? phase2().startBudget : phase2().endBudget}
+            segments={[
+              { value: phase2().agentCost, color: 'bg-emerald-600/70', label: 'Agents', title: 'Phase 2 Agents cost' },
+              { value: phase2().engineCost, color: 'bg-sky-600/70', label: 'Engines', title: 'Phase 2 Engines cost' },
+              { value: Math.max(0, (props.phase2Timing() === 'start' ? phase2().startBudget : phase2().endBudget) - phase2().agentCost - phase2().engineCost), color: 'bg-zinc-700', label: 'Left', title: 'Estimated pulls left after Phase 2' },
+            ]}
+          />
+
+          <ul class="gap-x-3 gap-y-1 grid" style={{ 'grid-template-columns': '12rem 2rem 8rem auto' }}>
+            <ChannelCostRow
+              label="Agents cost"
+              value={displayedCosts().phase2.agent}
+              affordable={props.phase2Timing() === 'start' ? phase2().canAffordAgentStart : phase2().canAffordAgent}
+              pityLabel={`-${Math.max(0, phase2().agentPityStart ?? 0)}`}
+              explanation={breakdowns().phase2Agent}
+              title="Aggregated cost to secure Phase 2 selected Agents"
+            />
+            <ChannelCostRow
+              label="Engines cost"
+              value={displayedCosts().phase2.engine}
+              affordable={props.phase2Timing() === 'start' ? phase2().canAffordEngineAfterAgentStart : phase2().canAffordEngineAfterAgent}
+              pityLabel={`-${Math.max(0, phase2().enginePityStart)}`}
+              explanation={breakdowns().phase2Engine}
+              title="Aggregated cost to secure Phase 2 selected Engines"
+            />
+          </ul>
+        </div>
+
+        <div class="p-3 border border-zinc-700 rounded-lg bg-zinc-900/40 space-y-2">
+          <div class="text-emerald-200 font-semibold">What this means</div>
+          <ul class="text-sm text-zinc-300 space-y-1">
+            <li>
+              You get
+              {' '}
+              <span class="text-emerald-300">{totals().agentsGot}</span>
+              {' '}
+              Agent(s) and
+              {' '}
+              <span class="text-emerald-300">{totals().enginesGot}</span>
+              {' '}
+              W-Engine(s) in this scenario.
+            </li>
+            <Show when={agentFunding().funded.length}>
+              <li>
+                Funded Agents:
+                {' '}
+                <span class="text-emerald-300">{agentFunding().funded.join(', ')}</span>
+              </li>
+            </Show>
+            <Show when={engineFunding().funded.length}>
+              <li>
+                Funded W-Engines:
+                {' '}
+                <span class="text-emerald-300">{engineFunding().funded.join(', ')}</span>
+              </li>
+            </Show>
+            <Show when={missedTargets().length}>
+              <li>
+                Not funded yet:
+                {' '}
+                <span class="text-red-300">{missedTargets().join(', ')}</span>
+              </li>
+            </Show>
+            <Show when={phase1().shortfallEnd && (phase1().shortfallEnd ?? 0) > 0}>
+              <li>
+                You would need
+                {' '}
+                <span class="text-red-300">{Math.round(phase1().shortfallEnd ?? 0)}</span>
+                {' '}
+                more pulls at the end of Phase 1 to fund all Phase 1 selections.
+              </li>
+            </Show>
+            <Show when={phase2().shortfallEnd && (phase2().shortfallEnd ?? 0) > 0}>
+              <li>
+                You would need
+                {' '}
+                <span class="text-red-300">{Math.round(phase2().shortfallEnd ?? 0)}</span>
+                {' '}
+                more pulls at the end of Phase 2 to get everything.
+              </li>
+            </Show>
+            <li>
+              End of Phase 2 you have
+              {' '}
+              <span class="text-emerald-300">{Math.round(totals().pullsLeftEnd)}</span>
+              {' '}
+              pulls left.
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  )
+}

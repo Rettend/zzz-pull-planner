@@ -2,7 +2,7 @@ import type { ParentProps } from 'solid-js'
 import type { Store } from 'solid-js/store'
 import type { PlannerInputs, Scenario } from '~/lib/planner'
 import { makePersisted, storageSync } from '@solid-primitives/storage'
-import { createContext, untrack, useContext } from 'solid-js'
+import { batch, createContext, untrack, useContext } from 'solid-js'
 import { createStore } from 'solid-js/store'
 
 interface UIState {
@@ -21,6 +21,7 @@ type UIStoreState = UIState & {
 
 interface UIStoreActions {
   setPlannerInput: <K extends keyof PlannerInputs>(key: K, value: PlannerInputs[K]) => void
+  setPlannerInputs: (updates: Partial<PlannerInputs>) => void
   setScenario: (scenario: UILocalState['scenario']) => void
   setPhase1Timing: (t: 'start' | 'end') => void
   setPhase2Timing: (t: 'start' | 'end') => void
@@ -62,6 +63,13 @@ export function UIStoreProvider(props: ParentProps<{ accountId: string }>) {
   const actions: UIStoreActions = {
     setPlannerInput: (key, value) => {
       setLocal('plannerInputs', key, value)
+    },
+    setPlannerInputs: (updates) => {
+      batch(() => {
+        for (const [key, value] of Object.entries(updates)) {
+          setLocal('plannerInputs', key as keyof PlannerInputs, value)
+        }
+      })
     },
     setScenario: (scenario) => {
       setLocal('scenario', scenario)
