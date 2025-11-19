@@ -37,50 +37,7 @@
 
 ## 4. Data Model (Drizzle schema sketch)
 
-```ts
-// tables/banner.ts
-export const banners = sqliteTable('banners', {
-  id: text('id').primaryKey(), // slug (e.g., "alone-in-a-shared-dream-2025-11-05")
-  title: text('title').notNull(),
-  channelType: text('channel_type', { enum: ['agent', 'engine'] }).notNull(),
-  startUtc: integer('start_utc').notNull(), // epoch seconds
-  endUtc: integer('end_utc').notNull(),
-  version: text('version').notNull(),
-  createdAt: integer('created_at').default(sql`strftime('%s','now')`),
-  updatedAt: integer('updated_at').default(sql`strftime('%s','now')`).$onUpdateFn(() => sql`strftime('%s','now')`),
-})
-
-export const targets = sqliteTable('targets', {
-  id: text('id').primaryKey(), // normalized name (e.g., "yidhari")
-  displayName: text('display_name').notNull(),
-  rarity: integer('rarity').notNull(), // 5 = S, 4 = A
-  type: text('type', { enum: ['agent', 'engine'] }).notNull(),
-  attribute: text('attribute'),
-  specialty: text('specialty'),
-  iconPath: text('icon_path'), // R2 key
-  iconEtag: text('icon_etag'), // for cache busting
-  updatedAt: integer('updated_at').notNull(),
-})
-
-export const bannerTargets = sqliteTable('banner_targets', {
-  bannerId: text('banner_id').references(() => banners.id).notNull(),
-  targetId: text('target_id').references(() => targets.id).notNull(),
-  order: integer('order').notNull(),
-  isFeatured: integer('featured', { mode: 'boolean' }).default(false),
-  alias: text('alias'),
-}, table => ({ // TODO: this is the old named pk syntax, use new unnamed syntax
-  pk: primaryKey({ columns: [table.bannerId, table.targetId] }),
-}))
-
-export const scrapeRuns = sqliteTable('scrape_runs', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  startedAt: integer('started_at').notNull(),
-  finishedAt: integer('finished_at'),
-  status: text('status', { enum: ['success', 'failed', 'skipped'] }).notNull(),
-  message: text('message'),
-  diffJson: text('diff_json'),
-})
-```
+(done)
 
 ## 5. Worker Flow (cron job)
 
@@ -107,7 +64,7 @@ export const scrapeRuns = sqliteTable('scrape_runs', {
   - `getBanners(state: 'active' | 'upcoming' | 'past')`
   - `getTargets(ids?: string[])`
   - `getMetadata()` for attributes/specialties.
-- Client uses `createAsync` / `useSubmission` to call these; no REST routes required.
+- Client uses `createAsync` / `useAction` to call these; no REST routes required.
 - Delete `constants.ts`, we use src/server/*.ts for server functions; always use input schema validation with zod v4
 
 ## 7. Assets in the Front-End
@@ -125,9 +82,9 @@ export const scrapeRuns = sqliteTable('scrape_runs', {
 
 ## 10. Implementation Milestones
 
-1. Add Drizzle schema + migrations for `banners`, `units`, `banner_units`, `scrape_runs`.
+1. [x] Add Drizzle schema + migrations for `banners`, `units`, `banner_units`, `scrape_runs`.
 2. Implement SolidStart server endpoints that read from D1 (still with manual seed) to prove the client path works.
-3. Build the Worker scraper as a separate package (`apps/scraper`) sharing utilities via a `packages/shared` module.
-4. Add Cron trigger + on-demand route, store logs.
+3. Build the Worker scraper simply in `src/worker`, sharing utilities `src/lib`.
+4. Add Cron trigger + on-demand route.
 5. Wire icon storage to R2 and switch the front-end icon resolvers.
-6. Remove static `constants.ts` data once live data is trusted; keep test fixtures for regression tests.
+6. Remove static `constants.ts` data once live data is in db.

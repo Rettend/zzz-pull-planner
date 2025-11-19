@@ -6,3 +6,14 @@ keep_vars = true
 [assets]
 binding = "ASSETS"
 directory = ".output/public"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "zzz-pull-planner"
+database_id = "preview"
+preview_database_id = "DB"
+
+[[r2_buckets]]
+binding = "ASSETS_BUCKET"
+bucket_name = "zzz-assets"
+preview_bucket_name = "zzz-assets-preview"
