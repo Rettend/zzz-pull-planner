@@ -13,14 +13,19 @@ import { useUIStore } from '~/stores/ui'
 export default function Home() {
   const [ui, actions] = useUIStore()
   const [targets, targetActions] = useTargetsStore()
-  const inputs = () => ui.local.plannerInputs
-  const scenario = () => ui.local.scenario
-  const phase1Timing = () => ui.local.phase1Timing
-  const phase2Timing = () => ui.local.phase2Timing
+  const inputs = createMemo(() => ui.local.plannerInputs)
+  const scenario = createMemo(() => ui.local.scenario)
+  const phase1Timing = createMemo(() => ui.local.phase1Timing)
+  const phase2Timing = createMemo(() => ui.local.phase2Timing)
 
   const selectedEntries = createMemo(() => (targets?.selected ?? []).slice().sort((a, b) => a.priority - b.priority))
   const selectedTargets = createMemo<SelectedTargetInput[]>(() => selectedEntries().map(t => ({ name: t.name, channel: t.channel })))
   const groupedTargets = createMemo(() => aggregateTargets(selectedEntries()))
+  const currentEntry = createMemo(() => selectedEntries()[0] ?? null)
+  const currentTarget = createMemo<SelectedTargetInput | null>(() => {
+    const entry = currentEntry()
+    return entry ? { name: entry.name, channel: entry.channel } : null
+  })
 
   const plan = createMemo<PhasePlan>(() => {
     try {
@@ -31,11 +36,9 @@ export default function Home() {
     }
   })
 
-  const currentTarget = createMemo(() => selectedTargets()[0] ?? null)
-
   function simulatePull(count: 1 | 10) {
-    const target = untrack(currentTarget)
-    if (!target)
+    const targetEntry = untrack(currentEntry)
+    if (!targetEntry)
       return
     const currentInputs = untrack(inputs)
     if (currentInputs.pullsOnHand < count)
@@ -45,7 +48,7 @@ export default function Home() {
       pullsOnHand: currentInputs.pullsOnHand - count,
     }
 
-    if (target.channel === 'agent') {
+    if (targetEntry.channel === 'agent') {
       updates.pityAgentStart = Math.min(89, currentInputs.pityAgentStart + count)
     }
     else {
@@ -56,12 +59,12 @@ export default function Home() {
   }
 
   function onPulledIt() {
-    const target = untrack(currentTarget)
-    if (!target)
+    const targetEntry = untrack(currentEntry)
+    if (!targetEntry)
       return
 
     batch(() => {
-      if (target.channel === 'agent') {
+      if (targetEntry.channel === 'agent') {
         actions.setPlannerInputs({
           pityAgentStart: 0,
           guaranteedAgentStart: false,
@@ -73,10 +76,10 @@ export default function Home() {
           guaranteedEngineStart: false,
         })
       }
-
-      targetActions.remove(target.name)
+      targetActions.removeEntry(targetEntry.id)
     })
   }
+
   return (
     <main class="text-emerald-100 font-mono p-6 bg-zinc-900 min-h-screen relative">
       <div class="bg-[linear-gradient(transparent_1px,#18181b_1px),linear-gradient(90deg,transparent_1px,#18181b_1px)] bg-[size:32px_32px] opacity-20 pointer-events-none inset-0 absolute" />
