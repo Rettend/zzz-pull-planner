@@ -79,14 +79,10 @@ export async function scrapeBanners(db: any, r2?: R2Bucket) {
         const rarity = versionInfo?.rarity ?? target.rarity
         const attribute = versionInfo?.attribute ?? null
         const specialty = versionInfo?.specialty ?? null
-        let iconPath = existingTarget?.iconPath || target.iconUrl
+        let iconPath: string | null = existingTarget?.iconPath || null
 
         if (target.iconUrl && r2) {
-          const ext = target.iconUrl.split('.').pop()?.split('?')[0]?.toLowerCase() || 'png'
-          const safeExt = ext === 'webp' ? 'webp' : 'png'
-          const contentType = safeExt === 'webp' ? 'image/webp' : 'image/png'
-          const r2Key = `icons/${banner.channelType}s/${targetId}.${safeExt}`
-
+          const r2Key = `icons/${banner.channelType}s/${targetId}.webp`
           const exists = await checkR2FileExists({ ASSETS_BUCKET: r2 } as any, r2Key)
 
           if (!exists) {
@@ -94,7 +90,7 @@ export async function scrapeBanners(db: any, r2?: R2Bucket) {
             console.log(`Downloading image for ${target.name}...`)
             const imageBuffer = await downloadImage(target.iconUrl)
             if (imageBuffer) {
-              const success = await uploadToR2({ ASSETS_BUCKET: r2 } as any, r2Key, imageBuffer, contentType)
+              const success = await uploadToR2({ ASSETS_BUCKET: r2 } as any, r2Key, imageBuffer, 'image/webp')
               if (success) {
                 iconPath = r2Key
               }
@@ -138,10 +134,13 @@ export async function scrapeBanners(db: any, r2?: R2Bucket) {
     }
 
     await logRunFinish(db, runId, 'success', `Added ${addedCount}, Updated ${updatedCount}`)
+    // eslint-disable-next-line no-console
+    console.log(`Scrape run ${runId} completed successfully`)
     return { added: addedCount, updated: updatedCount }
   }
   catch (error) {
     const msg = error instanceof Error ? error.message : String(error)
+    console.error(`Scrape run ${runId} failed:`, msg)
     await logRunFinish(db, runId, 'failed', msg)
     throw error
   }

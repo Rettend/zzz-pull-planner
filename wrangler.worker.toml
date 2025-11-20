@@ -14,7 +14,7 @@ bucket_name = "zzz-assets"
 preview_bucket_name = "zzz-assets-preview"
 
 [triggers]
-crons = [ "*/5 * * * *" ]
+crons = [ "0 4 * * *" ]
 
 [observability]
 enabled = false
