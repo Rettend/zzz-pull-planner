@@ -1,23 +1,20 @@
-name = "zzz-pull-planner"
-main = ".output/server/index.mjs"
+name = "zzz-pull-planner-scraper"
+main = "src/worker/index.ts"
 compatibility_date = "2025-01-01"
 keep_vars = true
-routes = [ { pattern = "zzz.rettend.me", custom_domain = true } ]
-
-[assets]
-binding = "ASSETS"
-directory = ".output/public"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "zzz-pull-planner"
 database_id = "7fafd514-2b33-48e0-ae42-7e58e14b770a"
-migrations_dir = "drizzle"
 
 [[r2_buckets]]
 binding = "ASSETS_BUCKET"
 bucket_name = "zzz-assets"
 preview_bucket_name = "zzz-assets-preview"
+
+[triggers]
+crons = [ "*/5 * * * *" ]
 
 [observability]
 enabled = false

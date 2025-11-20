@@ -19,7 +19,9 @@
     "r:generate": "drizzle-kit generate",
     "r:migrate": "wrangler d1 migrations apply zzz-pull-planner --remote",
     "r:studio": "drizzle-kit studio --config drizzle.config.ts",
-    "worker:dev": "wrangler dev src/worker/index.ts"
+    "worker:dev": "wrangler dev src/worker/index.ts",
+    "deploy": "bun run build && wrangler deploy",
+    "deploy:scraper": "wrangler deploy --config wrangler.worker.toml"
   },
   "dependencies": {
     "@solid-primitives/storage": "^4.3.3",
