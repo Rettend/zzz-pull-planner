@@ -60,10 +60,14 @@ export function parseHistoryPage(html: string, type: 'agent' | 'engine'): Scrape
 
         // Determine rarity from class (e.g. card-rank-S)
         let rarity = 4 // Default to A-rank (4 stars)
-        if (card.hasClass('card-rank-S'))
+        // Check for S-rank class on the card container
+        if (card.hasClass('card-rank-S')) {
           rarity = 5
-        if (card.hasClass('card-rank-B'))
+        }
+        // Also check for B-rank
+        if (card.hasClass('card-rank-B')) {
           rarity = 3
+        }
 
         if (targetName) {
           targets.push({

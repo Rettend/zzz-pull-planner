@@ -4,9 +4,9 @@ import * as schema from './schema'
 
 export async function useDb() {
   if (import.meta.env.DEV) {
-    const { Database } = await import('bun:sqlite')
-    const { drizzle: drizzleSqlite } = await import('drizzle-orm/bun-sqlite')
-    const sqlite = new Database('local.db')
+    const { default: Database } = await import('better-sqlite3')
+    const { drizzle: drizzleSqlite } = await import('drizzle-orm/better-sqlite3')
+    const sqlite = new Database('drizzle/local.db')
     return drizzleSqlite(sqlite, { schema })
   }
 

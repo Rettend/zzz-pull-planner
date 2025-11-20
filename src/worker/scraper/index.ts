@@ -76,24 +76,30 @@ export async function scrapeBanners(db: any, r2?: R2Bucket) {
         const existingTarget = await db.select().from(targets).where(eq(targets.id, targetId)).get()
 
         const versionInfo = versionDataMap.get(target.name)
-        const rarity = versionInfo?.rarity ?? target.rarity
+        const rarity = Math.max(target.rarity, versionInfo?.rarity ?? 0)
         const attribute = versionInfo?.attribute ?? null
         const specialty = versionInfo?.specialty ?? null
         let iconPath: string | null = existingTarget?.iconPath || null
 
-        if (target.iconUrl && r2) {
+        if (target.iconUrl) {
           const r2Key = `icons/${banner.channelType}s/${targetId}.webp`
-          const exists = await checkR2FileExists({ ASSETS_BUCKET: r2 } as any, r2Key)
 
-          if (!exists) {
-            // eslint-disable-next-line no-console
-            console.log(`Downloading image for ${target.name}...`)
-            const imageBuffer = await downloadImage(target.iconUrl)
-            if (imageBuffer) {
-              const success = await uploadToR2({ ASSETS_BUCKET: r2 } as any, r2Key, imageBuffer, 'image/webp')
-              if (success) {
-                iconPath = r2Key
+          if (r2) {
+            const exists = await checkR2FileExists({ ASSETS_BUCKET: r2 } as any, r2Key)
+
+            if (!exists) {
+              // eslint-disable-next-line no-console
+              console.log(`Downloading image for ${target.name}...`)
+              const imageBuffer = await downloadImage(target.iconUrl)
+              if (imageBuffer) {
+                const success = await uploadToR2({ ASSETS_BUCKET: r2 } as any, r2Key, imageBuffer, 'image/webp')
+                if (success) {
+                  iconPath = r2Key
+                }
               }
+            }
+            else {
+              iconPath = r2Key
             }
           }
           else {
@@ -115,7 +121,7 @@ export async function scrapeBanners(db: any, r2?: R2Bucket) {
         }
         else {
           await db.update(targets).set({
-            rarity,
+            rarity: rarity || existingTarget.rarity,
             attribute: attribute || existingTarget.attribute,
             specialty: specialty || existingTarget.specialty,
             iconPath,

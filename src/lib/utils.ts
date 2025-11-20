@@ -6,7 +6,6 @@ export function normalizeName(name: string): string {
 }
 
 export function parseDate(dateStr: string): Date {
-  // Handles "November 5, 2025" format
   const date = new Date(dateStr)
   if (Number.isNaN(date.getTime())) {
     throw new TypeError(`Invalid date string: ${dateStr}`)

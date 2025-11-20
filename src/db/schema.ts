@@ -20,7 +20,6 @@ export const targets = sqliteTable('targets', {
   attribute: text('attribute'),
   specialty: text('specialty'),
   iconPath: text('icon_path'), // R2 key
-  iconEtag: text('icon_etag'),
   updatedAt: integer('updated_at').notNull(),
 })
 
