@@ -2,8 +2,9 @@ import type { Component } from 'solid-js'
 import type { ChannelType } from '~/lib/constants'
 import type { TargetAggregate } from '~/stores/targets'
 import { createMemo, createSignal, For, Show } from 'solid-js'
-import { BANNERS, isBannerPast } from '~/lib/constants'
+import { isBannerPast } from '~/lib/constants'
 import { computeTwoPhasePlan, emptyPlan } from '~/lib/planner'
+import { useGame } from '~/stores/game'
 import { aggregateTargets, useTargetsStore } from '~/stores/targets'
 import { useUIStore } from '~/stores/ui'
 import { TargetIconCard } from './TargetIconCard'
@@ -11,11 +12,12 @@ import { TargetIconCard } from './TargetIconCard'
 export const TargetPicker: Component = () => {
   const [targets, actions] = useTargetsStore()
   const [ui] = useUIStore()
+  const game = useGame()
 
   const inputs = () => ui.local.plannerInputs
   const scenario = () => ui.local.scenario
 
-  const ranges = createMemo(() => [...new Set(BANNERS.filter(b => !isBannerPast(b)).map(b => `${b.start} → ${b.end}`))])
+  const ranges = createMemo(() => [...new Set(game.banners().filter(b => !isBannerPast(b)).map(b => `${b.start} → ${b.end}`))])
   const selectedEntries = createMemo(() => [...targets.selected].sort((a, b) => a.priority - b.priority))
   const aggregatedSelected = createMemo(() => aggregateTargets(selectedEntries()))
   const aggregatedMap = createMemo(() => {
@@ -27,7 +29,7 @@ export const TargetPicker: Component = () => {
   const selectedTargetsInput = createMemo(() => selectedEntries().map(t => ({ name: t.name, channel: t.channel })))
   const plan = createMemo(() => {
     try {
-      return computeTwoPhasePlan(inputs(), scenario(), selectedTargetsInput())
+      return computeTwoPhasePlan(game.banners(), inputs(), scenario(), selectedTargetsInput())
     }
     catch {
       return emptyPlan()
@@ -183,7 +185,7 @@ export const TargetPicker: Component = () => {
             <div class="space-y-2">
               <div class="text-sm text-emerald-200 font-semibold">{range}</div>
               <div class="gap-3 grid grid-cols-2 lg:grid-cols-3 md:grid-cols-4 xl:grid-cols-4">
-                <For each={BANNERS.filter(b => !isBannerPast(b) && `${b.start} → ${b.end}` === range)}>
+                <For each={game.banners().filter(b => !isBannerPast(b) && `${b.start} → ${b.end}` === range)}>
                   {(b) => {
                     const target = () => findAggregate(b.featured)
                     return (

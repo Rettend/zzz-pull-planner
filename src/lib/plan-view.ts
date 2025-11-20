@@ -1,8 +1,7 @@
-import type { ChannelType } from '~/lib/constants'
+import type { Banner, ChannelType } from '~/lib/constants'
 import type { PhasePlan, PlannerInputs, Scenario } from '~/lib/planner'
 import type { TargetAggregate } from '~/stores/targets'
 import type { BreakdownPart } from '~/utils/plan'
-import { BANNERS } from '~/lib/constants'
 import { computeChannelBreakdown, roundToTarget } from '~/utils/plan'
 
 export type PhaseIndex = 1 | 2
@@ -26,12 +25,12 @@ function rangeKey(b: { start: string, end: string }): string {
   return `${b.start}→${b.end}`
 }
 
-export function buildPhaseRanges(): string[] {
-  return Array.from(new Set(BANNERS.map(rangeKey))).sort((a, b) => a.localeCompare(b))
+export function buildPhaseRanges(banners: Banner[]): string[] {
+  return Array.from(new Set(banners.map(rangeKey))).sort((a, b) => a.localeCompare(b))
 }
 
-export function phaseOfName(name: string, ranges: string[]): PhaseIndex {
-  const banner = BANNERS.find(x => x.featured === name)
+export function phaseOfName(banners: Banner[], name: string, ranges: string[]): PhaseIndex {
+  const banner = banners.find(x => x.featured === name)
   if (!banner)
     return 1
   const idx = ranges.indexOf(rangeKey(banner))
@@ -39,13 +38,14 @@ export function phaseOfName(name: string, ranges: string[]): PhaseIndex {
 }
 
 export function namesForPhaseChannel(
+  banners: Banner[],
   selectedTargets: SelectedTargetInput[],
   ranges: string[],
   phase: PhaseIndex,
   channel: ChannelType,
 ): string[] {
   return selectedTargets
-    .filter(target => phaseOfName(target.name, ranges) === phase && target.channel === channel)
+    .filter(target => phaseOfName(banners, target.name, ranges) === phase && target.channel === channel)
     .map(target => target.name)
 }
 
@@ -130,6 +130,7 @@ export function planCost(plan: PhasePlan, phase: PhaseIndex, channel: ChannelTyp
 }
 
 export function calculateDisplayedCost(params: {
+  banners: Banner[]
   plan: PhasePlan
   phase: PhaseIndex
   channel: ChannelType
@@ -138,11 +139,11 @@ export function calculateDisplayedCost(params: {
   selectedTargets: SelectedTargetInput[]
   ranges: string[]
 }): number {
-  const { plan, phase, channel, scenario, inputs, selectedTargets, ranges } = params
+  const { banners, plan, phase, channel, scenario, inputs, selectedTargets, ranges } = params
   const actual = Math.round(planCost(plan, phase, channel))
   if (actual > 0)
     return actual
-  const names = namesForPhaseChannel(selectedTargets, ranges, phase, channel)
+  const names = namesForPhaseChannel(banners, selectedTargets, ranges, phase, channel)
   const breakdown = computeChannelBreakdown(phase, channel, plan, scenario, inputs, names)
   if (!breakdown)
     return 0
@@ -151,6 +152,7 @@ export function calculateDisplayedCost(params: {
 }
 
 export function channelBreakdownParts(params: {
+  banners: Banner[]
   plan: PhasePlan
   phase: PhaseIndex
   channel: ChannelType
@@ -160,8 +162,8 @@ export function channelBreakdownParts(params: {
   ranges: string[]
   displayedTotal: number
 }): RoundedBreakdownPart[] | null {
-  const { plan, phase, channel, scenario, inputs, selectedTargets, ranges, displayedTotal } = params
-  const names = namesForPhaseChannel(selectedTargets, ranges, phase, channel)
+  const { banners, plan, phase, channel, scenario, inputs, selectedTargets, ranges, displayedTotal } = params
+  const names = namesForPhaseChannel(banners, selectedTargets, ranges, phase, channel)
   const breakdown = computeChannelBreakdown(phase, channel, plan, scenario, inputs, names)
   if (!breakdown)
     return null

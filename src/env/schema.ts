@@ -8,6 +8,7 @@ export const serverScheme = z.object({
 })
 
 export const clientScheme = z.object({
+  VITE_R2_PUBLIC_URL: z.string(),
 })
 
 export function parseEnv<T extends z.ZodTypeAny>(

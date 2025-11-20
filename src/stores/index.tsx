@@ -1,16 +1,19 @@
 import type { ParentProps } from 'solid-js'
 import { createMemo, Show } from 'solid-js'
 import { AccountsStoreProvider, useAccountsStore } from './accounts'
+import { GameDataProvider } from './game'
 import { TargetsStoreProvider } from './targets'
 import { UIStoreProvider } from './ui'
 
 export function RootStoreProvider(props: ParentProps) {
   return (
-    <AccountsStoreProvider>
-      <AccountScopedProviders>
-        {props.children}
-      </AccountScopedProviders>
-    </AccountsStoreProvider>
+    <GameDataProvider>
+      <AccountsStoreProvider>
+        <AccountScopedProviders>
+          {props.children}
+        </AccountScopedProviders>
+      </AccountsStoreProvider>
+    </GameDataProvider>
   )
 }
 

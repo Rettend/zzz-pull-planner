@@ -7,12 +7,14 @@ import { PlanOverview } from '~/components/home/PlanOverview'
 import { PullSimulationPanel } from '~/components/home/PullSimulationPanel'
 import { TargetPicker } from '~/components/TargetPicker'
 import { computeTwoPhasePlan, emptyPlan } from '~/lib/planner'
+import { useGame } from '~/stores/game'
 import { aggregateTargets, useTargetsStore } from '~/stores/targets'
 import { useUIStore } from '~/stores/ui'
 
 export default function Home() {
   const [ui, actions] = useUIStore()
   const [targets, targetActions] = useTargetsStore()
+  const game = useGame()
   const inputs = createMemo(() => ui.local.plannerInputs)
   const scenario = createMemo(() => ui.local.scenario)
   const phase1Timing = createMemo(() => ui.local.phase1Timing)
@@ -29,7 +31,7 @@ export default function Home() {
 
   const plan = createMemo<PhasePlan>(() => {
     try {
-      return computeTwoPhasePlan(inputs(), scenario(), selectedTargets())
+      return computeTwoPhasePlan(game.banners(), inputs(), scenario(), selectedTargets())
     }
     catch {
       return emptyPlan()
@@ -94,6 +96,7 @@ export default function Home() {
         <div class="gap-6 grid lg:grid-cols-[1fr_2fr]">
           <PlannerInputsPanel />
           <PlanOverview
+            banners={game.banners}
             plan={plan}
             inputs={inputs}
             scenario={scenario}

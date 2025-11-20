@@ -1,5 +1,4 @@
 import type { Banner, ChannelType } from '~/lib/constants'
-import { BANNERS } from '~/lib/constants'
 import { convolveDiscrete, costAtScenario, costStatsFromPmf, featuredCostPmf } from '~/lib/probability'
 
 export type Scenario = 'p50' | 'p60' | 'p75' | 'p90' | 'ev'
@@ -135,17 +134,18 @@ function rangeKey(b: Banner): string {
   return `${b.start}→${b.end}`
 }
 
-function bannerByFeatured(name: string): Banner | undefined {
-  return BANNERS.find(b => b.featured === name)
+function bannerByFeatured(banners: Banner[], name: string): Banner | undefined {
+  return banners.find(b => b.featured === name)
 }
 
-function computePhaseRanges(): string[] {
-  const ranges = Array.from(new Set(BANNERS.map(rangeKey)))
+function computePhaseRanges(banners: Banner[]): string[] {
+  const ranges = Array.from(new Set(banners.map(rangeKey)))
   ranges.sort((a, b) => a.localeCompare(b))
   return ranges
 }
 
 export function computeTwoPhasePlan(
+  banners: Banner[],
   inputs: PlannerInputs,
   scenario: Scenario,
   selected: SelectedTargetInput[] = [],
@@ -164,10 +164,10 @@ export function computeTwoPhasePlan(
   const qAgent = luckMode === 'best' ? 1 : luckMode === 'worst' ? 0 : 0.5
   const qEngine = luckMode === 'best' ? 1 : luckMode === 'worst' ? 0 : 0.75
 
-  const ranges = computePhaseRanges()
+  const ranges = computePhaseRanges(banners)
   const phaseIndexByTarget: Record<string, 0 | 1> = {}
   for (const t of selected) {
-    const b = bannerByFeatured(t.name)
+    const b = bannerByFeatured(banners, t.name)
     if (b) {
       const idx = ranges.indexOf(rangeKey(b))
       phaseIndexByTarget[t.name] = (idx <= 0 ? 0 : 1)

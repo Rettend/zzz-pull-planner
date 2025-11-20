@@ -1,5 +1,4 @@
 import type { PhasePlan, PlannerInputs, Scenario } from '~/lib/planner'
-import { resolveAgent, resolveWEngine } from '~/lib/constants'
 import { costAtScenario, costStatsFromPmf, featuredCostPmf, firstSPmfFromHazard, getDefaultHazard, hazardWithPityOffset } from '~/lib/probability'
 
 export type Channel = 'agent' | 'engine'
@@ -33,7 +32,6 @@ export function computeChannelBreakdown(
   const luckMode = inputs.luckMode ?? 'realistic'
   const q = getFeaturedProbability(luckMode, channel)
   const names = (targetNames && targetNames.length ? targetNames : (phase === 1 ? plan.fundedTargetsPhase1 : plan.fundedTargetsPhase2))
-    .filter(n => channel === 'agent' ? Boolean(resolveAgent(n)) : Boolean(resolveWEngine(n)))
   if (names.length === 0)
     return null
 

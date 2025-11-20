@@ -31,3 +31,4 @@ Thumbs.db
 # other
 docs/DATA.md
 drizzle/local.db
+data/

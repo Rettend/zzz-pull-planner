@@ -1,4 +1,5 @@
 import type { Accessor } from 'solid-js'
+import type { Banner } from '~/lib/constants'
 import type { SelectedTargetInput } from '~/lib/plan-view'
 import type { PhasePlan, PlannerInputs, Scenario } from '~/lib/planner'
 import type { TargetAggregate } from '~/stores/targets'
@@ -9,9 +10,8 @@ import { buildPhaseRanges, calculateDisplayedCost, channelBreakdownParts, comput
 import { ChannelCostRow } from './ChannelCostRow'
 import { PhaseHeader } from './PhaseHeader'
 
-const PHASE_RANGES = buildPhaseRanges()
-
 interface PlanOverviewProps {
+  banners: Accessor<Banner[]>
   plan: Accessor<PhasePlan>
   inputs: Accessor<PlannerInputs>
   scenario: Accessor<Scenario>
@@ -25,6 +25,8 @@ interface PlanOverviewProps {
 
 export function PlanOverview(props: PlanOverviewProps) {
   const [copied, setCopied] = createSignal(false)
+
+  const phaseRanges = createMemo(() => buildPhaseRanges(props.banners()))
 
   const phase1 = createMemo(() => props.plan().phase1)
   const phase2 = createMemo(() => props.plan().phase2)
@@ -51,11 +53,12 @@ export function PlanOverview(props: PlanOverviewProps) {
   })
 
   const commonParams = createMemo(() => ({
+    banners: props.banners(),
     plan: props.plan(),
     scenario: props.scenario(),
     inputs: props.inputs(),
     selectedTargets: props.selectedTargets(),
-    ranges: PHASE_RANGES,
+    ranges: phaseRanges(),
   }))
 
   const displayedCosts = createMemo(() => {

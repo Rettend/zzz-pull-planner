@@ -1,4 +1,4 @@
-import { sql } from 'drizzle-orm'
+import { relations, sql } from 'drizzle-orm'
 import { integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 export const banners = sqliteTable('banners', {
@@ -44,6 +44,25 @@ export const scrapeRuns = sqliteTable('scrape_runs', {
   message: text('message'),
   diffJson: text('diff_json'),
 })
+
+export const bannersRelations = relations(banners, ({ many }) => ({
+  bannerTargets: many(bannerTargets),
+}))
+
+export const targetsRelations = relations(targets, ({ many }) => ({
+  bannerTargets: many(bannerTargets),
+}))
+
+export const bannerTargetsRelations = relations(bannerTargets, ({ one }) => ({
+  banner: one(banners, {
+    fields: [bannerTargets.bannerId],
+    references: [banners.id],
+  }),
+  target: one(targets, {
+    fields: [bannerTargets.targetId],
+    references: [targets.id],
+  }),
+}))
 
 export type Banner = typeof banners.$inferSelect
 export type NewBanner = typeof banners.$inferInsert
