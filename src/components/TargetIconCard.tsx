@@ -105,7 +105,7 @@ export const TargetIconCard: Component<{
       {/* Remove button */}
       <Show when={props.removable}>
         <button
-          class="p-1 border border-zinc-700 rounded-full bg-zinc-900/90 opacity-0 flex size-8 shadow transition-opacity items-center justify-center absolute hover:border-red-500 hover:bg-red-600/80 group-hover:opacity-100 -right-2 -top-2"
+          class="p-1 border border-zinc-700 rounded-full bg-zinc-900/90 opacity-90 flex size-8 shadow transition-opacity items-center justify-center absolute hover:border-red-500 hover:bg-red-600/80 hover:opacity-100 -right-2 -top-2"
           aria-label="Remove"
           onClick={(e) => {
             e.stopPropagation()

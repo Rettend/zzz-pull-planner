@@ -252,7 +252,7 @@ export const TargetPicker: Component = () => {
                   </Show>
 
                   <div
-                    class="relative"
+                    class="group relative"
                     draggable
                     onDragStart={e => onDragStart(e, i())}
                     onDragEnd={onDragEnd}
@@ -271,7 +271,7 @@ export const TargetPicker: Component = () => {
                       </div>
                     </div>
                     <button
-                      class="p-1 border border-zinc-700 rounded-full bg-zinc-900/90 opacity-0 flex size-8 shadow transition-opacity items-center justify-center absolute hover:border-red-500 hover:bg-red-600/80 group-hover:opacity-100 -right-2 -top-2"
+                      class="p-1 border border-zinc-700 rounded-full bg-zinc-900/90 opacity-0 flex size-8 shadow transition-all items-center justify-center absolute hover:border-red-500 hover:bg-red-600/80 group-hover:opacity-100 -right-2 -top-2"
                       aria-label="Remove mindscape"
                       onClick={(e) => {
                         e.stopPropagation()
