@@ -33,7 +33,7 @@ export interface GameData {
 
 export const getGameData = query(async (): Promise<GameData> => {
   'use server'
-  const db = useDb()
+  const db = await useDb()
 
   const allBanners = await db.query.banners.findMany({
     orderBy: [desc(banners.startUtc)],

@@ -1,12 +1,12 @@
-import { Database } from 'bun:sqlite'
-import { drizzle as drizzleSqlite } from 'drizzle-orm/bun-sqlite'
 import { drizzle } from 'drizzle-orm/d1'
 import { getRequestEvent } from 'solid-js/web'
 import * as schema from './schema'
 
-export function useDb() {
+export async function useDb() {
   if (import.meta.env.DEV) {
-    const sqlite = new Database('drizzle/local.db')
+    const { Database } = await import('bun:sqlite')
+    const { drizzle: drizzleSqlite } = await import('drizzle-orm/bun-sqlite')
+    const sqlite = new Database('local.db')
     return drizzleSqlite(sqlite, { schema })
   }
 

@@ -1,7 +1,7 @@
 import type { Accessor, ParentComponent } from 'solid-js'
 import type { AgentMeta, Attribute, Banner, Specialty, WEngineMeta } from '~/lib/constants'
 import { createContext, createResource, useContext } from 'solid-js'
-import { clientEnv } from '~/env'
+import { clientEnv } from '~/env/client'
 import { ATTRIBUTE_ICON, SPECIALTY_ICON, UNKNOWN_ICON } from '~/lib/constants'
 import { getGameData } from '~/lib/data'
 
