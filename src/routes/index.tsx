@@ -1,7 +1,7 @@
 import type { SelectedTargetInput } from '~/lib/plan-view'
 import type { PhasePlan, PlannerInputs } from '~/lib/planner'
 import { batch, createMemo, untrack } from 'solid-js'
-import { ExternalLink } from '~/components/ExternalLink'
+import { Header } from '~/components/Header'
 import { AccountsTabs } from '~/components/home/AccountsTabs'
 import { PlannerInputsPanel } from '~/components/home/PlannerInputsPanel'
 import { PlanOverview } from '~/components/home/PlanOverview'
@@ -98,6 +98,7 @@ export default function Home() {
   return (
     <main class="text-emerald-100 font-mono p-6 bg-zinc-900 min-h-screen relative">
       <div class="bg-[linear-gradient(transparent_1px,#18181b_1px),linear-gradient(90deg,transparent_1px,#18181b_1px)] bg-[size:32px_32px] opacity-20 pointer-events-none inset-0 absolute" />
+      <Header />
       <div class="mx-auto max-w-7xl relative space-y-6">
         <AccountsTabs />
 
@@ -128,36 +129,6 @@ export default function Home() {
           onPulled={onPulledIt}
         />
       </div>
-      <footer class="text-sm text-zinc-400 mt-12 pt-6 border-t border-zinc-800">
-        <div class="mx-auto flex flex-col gap-3 max-w-7xl sm:flex-row sm:items-center sm:justify-between">
-          <div class="flex flex-col gap-1 sm:flex-row sm:gap-4 sm:items-center">
-            <span class="text-xs text-zinc-500 tracking-[0.2em] uppercase">ZZZ Pull Planner</span>
-            <span class="text-zinc-700 hidden sm:inline">|</span>
-            <ExternalLink
-              href="https://rettend.me"
-              class="text-xs text-zinc-500"
-            >
-              Made by Rettend
-            </ExternalLink>
-          </div>
-          <div class="flex gap-4 items-center">
-            <ExternalLink
-              href="https://discord.gg/FvVaUPhj3t"
-              class="text-zinc-400"
-              title="Join Discord"
-            >
-              <i class="i-ph:discord-logo text-xl" />
-            </ExternalLink>
-            <ExternalLink
-              href="https://github.com/Rettend/zzz-pull-planner"
-              class="text-zinc-400"
-              title="View the project on GitHub"
-            >
-              <i class="i-ph:github-logo text-xl" />
-            </ExternalLink>
-          </div>
-        </div>
-      </footer>
     </main>
   )
 }
