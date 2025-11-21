@@ -7,6 +7,7 @@ import { createMemo, createSignal, For, Show } from 'solid-js'
 import { Badge, BudgetBar, StatRow } from '~/components/ui'
 import { formatPlanCopyText } from '~/lib/clipboard'
 import { buildPhaseRanges, calculateDisplayedCost, channelBreakdownParts, computeFundingSummary, createFundedMindscapes } from '~/lib/plan-view'
+import { useGame } from '~/stores/game'
 import { formatSlug } from '~/utils'
 import { ChannelCostRow } from './ChannelCostRow'
 import { PhaseHeader } from './PhaseHeader'
@@ -20,6 +21,7 @@ interface PlanOverviewProps {
   groupedTargets: Accessor<TargetAggregate[]>
   phaseTimings: Accessor<Record<number, 'start' | 'end'>>
   onPhaseTimingChange: (index: number, value: 'start' | 'end') => void
+  planningMode: Accessor<'s-rank' | 'a-rank'>
 }
 
 export function PlanOverview(props: PlanOverviewProps) {
@@ -48,6 +50,8 @@ export function PlanOverview(props: PlanOverviewProps) {
     }
   })
 
+  const game = useGame()
+
   const commonParams = createMemo(() => ({
     banners: props.banners(),
     plan: props.plan(),
@@ -55,6 +59,15 @@ export function PlanOverview(props: PlanOverviewProps) {
     inputs: props.inputs(),
     selectedTargets: props.selectedTargets(),
     ranges: phaseRanges(),
+    checkRarity: (name: string) => {
+      const agent = game.resolveAgent(name)
+      if (agent)
+        return agent.rarity
+      const engine = game.resolveWEngine(name)
+      if (engine)
+        return engine.rarity
+      return 5
+    },
   }))
 
   const displayedCosts = createMemo(() => {
@@ -74,11 +87,65 @@ export function PlanOverview(props: PlanOverviewProps) {
     }))
   })
 
+  const estimatedARanks = createMemo(() => {
+    if (props.planningMode() !== 's-rank')
+      return []
+
+    const plan = props.plan()
+    const totalAgentCost = plan.phases.reduce((acc, p) => acc + p.agentCost, 0)
+    const totalEngineCost = plan.phases.reduce((acc, p) => acc + p.engineCost, 0)
+
+    const selected = props.selectedTargets()
+    const agents = selected.filter(t => t.channel === 'agent')
+    const engines = selected.filter(t => t.channel === 'engine')
+
+    const counts = new Map<string, number>()
+
+    const addCount = (name: string, amount: number) => {
+      counts.set(name, (counts.get(name) ?? 0) + amount)
+    }
+
+    if (agents.length > 0 && totalAgentCost > 0) {
+      const costPerAgent = totalAgentCost / agents.length
+      for (const t of agents) {
+        const banner = props.banners().find(b => b.featured === t.name)
+        if (banner) {
+          const numFeatured = banner.featuredARanks.length || 2
+          const ratePerSpecific = 0.094 * 0.5 / numFeatured
+          const yieldCount = costPerAgent * ratePerSpecific
+          for (const a of banner.featuredARanks) {
+            addCount(a, yieldCount)
+          }
+        }
+      }
+    }
+
+    if (engines.length > 0 && totalEngineCost > 0) {
+      const costPerEngine = totalEngineCost / engines.length
+      for (const t of engines) {
+        const banner = props.banners().find(b => b.featured === t.name)
+        if (banner) {
+          const numFeatured = banner.featuredARanks.length || 2
+          const ratePerSpecific = 0.150 * 0.5 / numFeatured
+          const yieldCount = costPerEngine * ratePerSpecific
+          for (const a of banner.featuredARanks) {
+            addCount(a, yieldCount)
+          }
+        }
+      }
+    }
+
+    return Array.from(counts.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .filter(x => x.count >= 0.5)
+  })
+
   const missedTargets = createMemo(() => [...agentFunding().missed, ...engineFunding().missed])
 
   async function onCopy() {
     try {
-      const text = formatPlanCopyText(props.inputs(), props.scenario(), props.selectedTargets(), props.plan())
+      const text = formatPlanCopyText(props.inputs(), props.scenario(), props.selectedTargets(), props.plan(), commonParams().checkRarity)
       if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText)
         await navigator.clipboard.writeText(text)
       setCopied(true)
@@ -227,6 +294,15 @@ export function PlanOverview(props: PlanOverviewProps) {
                 Not funded yet:
                 {' '}
                 <span class="text-red-300">{missedTargets().map(formatSlug).join(', ')}</span>
+              </li>
+            </Show>
+
+            <Show when={estimatedARanks().length > 0}>
+              <li class="mt-1 pt-1 border-t border-zinc-700/50">
+                <div class="text-xs text-zinc-400 mb-0.5">Estimated A-Ranks:</div>
+                <div class="text-purple-300 leading-relaxed">
+                  {estimatedARanks().map(x => `+${Math.round(x.count)} ${formatSlug(x.name)}`).join(', ')}
+                </div>
               </li>
             </Show>
 

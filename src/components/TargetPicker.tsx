@@ -11,11 +11,13 @@ import { TargetIconCard } from './TargetIconCard'
 
 export const TargetPicker: Component = () => {
   const [targets, actions] = useTargetsStore()
-  const [ui] = useUIStore()
+  const [ui, uiActions] = useUIStore()
   const game = useGame()
 
   const inputs = createMemo(() => ui.local.plannerInputs)
   const scenario = createMemo(() => ui.local.scenario)
+  const planningMode = createMemo(() => ui.local.planningMode)
+  const isARankMode = createMemo(() => planningMode() === 'a-rank')
 
   const activeBanners = createMemo(() => game.banners().filter(b => !isBannerPast(b)))
   const ranges = createMemo(() => [...new Set(activeBanners().map(b => `${b.start} → ${b.end}`))])
@@ -37,7 +39,16 @@ export const TargetPicker: Component = () => {
       map.set(entry.name, entry)
     return map
   })
-  const selectedTargetsInput = createMemo(() => selectedEntries().map(t => ({ name: t.name, channel: t.channel })))
+  const selectedTargetsInput = createMemo(() => {
+    const mode = planningMode()
+    return selectedEntries()
+      .filter((t) => {
+        const meta = t.channel === 'agent' ? game.resolveAgent(t.name) : game.resolveWEngine(t.name)
+        const rarity = meta?.rarity ?? 5
+        return mode === 's-rank' ? rarity === 5 : rarity === 4
+      })
+      .map(t => ({ name: t.name, channel: t.channel }))
+  })
   const plan = createMemo(() => {
     try {
       return computePlan(activeBanners(), inputs(), scenario(), selectedTargetsInput())
@@ -191,38 +202,71 @@ export const TargetPicker: Component = () => {
     <div class="gap-4 grid lg:grid-cols-2">
       {/* Selector */}
       <div class="space-y-3">
+        <div class="p-1 border border-zinc-700/50 rounded-lg bg-zinc-800/50 flex gap-2">
+          <button
+            class={`text-xs tracking-wider font-bold py-1.5 rounded-md flex-1 uppercase transition-colors ${!isARankMode() ? 'bg-gradient-to-b from-[#fff200] to-[#ff8200] text-zinc-900 border border-[#fff200]' : 'text-zinc-500 hover:text-zinc-300'}`}
+            onClick={() => uiActions.setPlanningMode('s-rank')}
+          >
+            S-Rank
+          </button>
+          <button
+            class={`text-xs tracking-wider font-bold py-1.5 rounded-md flex-1 uppercase transition-colors ${isARankMode() ? 'bg-gradient-to-b from-[#ff59ff] to-[#ab2bfa] text-zinc-900 border border-[#ff59ff]' : 'text-zinc-500 hover:text-zinc-300'}`}
+            onClick={() => uiActions.setPlanningMode('a-rank')}
+          >
+            A-Rank
+          </button>
+        </div>
+
         <For each={ranges()}>
           {range => (
             <div class="space-y-2">
               <div class="text-sm text-emerald-200 font-semibold">{range}</div>
               <div class="gap-3 grid grid-cols-2 lg:grid-cols-3 md:grid-cols-4 xl:grid-cols-4">
-                <For each={bannersByRange().get(range)}>
-                  {(b) => {
-                    const target = () => findAggregate(b.featured)
-                    return (
-                      <button
-                        class="text-left"
-                        onClick={() => isSelected(b.featured)
-                          ? actions.remove(b.featured)
-                          : actions.add({ name: b.featured, channel: b.type })}
-                        title={`${b.title} (${b.start} → ${b.end})`}
-                      >
-                        <TargetIconCard
-                          name={b.featured}
-                          context="selector"
-                          selected={isSelected(b.featured)}
-                          muted={!isSelected(b.featured)}
-                          notMet={isSelected(b.featured) && !isFullyFunded()(b.featured)}
-                          showMindscapeControls
-                          mindscapeLevel={target() ? target()!.count - 1 : undefined}
-                          channel={b.type}
-                          onIncrementMindscape={() => handleIncrement(b.featured, b.type)}
-                          onDecrementMindscape={() => handleDecrement(b.featured)}
-                        />
-                      </button>
-                    )
-                  }}
-                </For>
+                {(() => {
+                  const uniqueTargets = createMemo(() => {
+                    const banners = bannersByRange().get(range) || []
+                    const map = new Map<string, { name: string, channel: ChannelType, banner: Banner }>()
+                    for (const b of banners) {
+                      const targets = isARankMode() ? b.featuredARanks : [b.featured]
+                      for (const t of targets) {
+                        if (!map.has(t)) {
+                          map.set(t, { name: t, channel: b.type, banner: b })
+                        }
+                      }
+                    }
+                    return Array.from(map.values())
+                  })
+
+                  return (
+                    <For each={uniqueTargets()}>
+                      {({ name: targetName, channel, banner: b }) => {
+                        const target = () => findAggregate(targetName)
+                        return (
+                          <button
+                            class="text-left"
+                            onClick={() => isSelected(targetName)
+                              ? actions.remove(targetName)
+                              : actions.add({ name: targetName, channel })}
+                            title={`${b.title} (${b.start} → ${b.end})`}
+                          >
+                            <TargetIconCard
+                              name={targetName}
+                              context="selector"
+                              selected={isSelected(targetName)}
+                              muted={!isSelected(targetName)}
+                              notMet={isSelected(targetName) && !isFullyFunded()(targetName)}
+                              showMindscapeControls
+                              mindscapeLevel={target() ? target()!.count - 1 : undefined}
+                              channel={channel}
+                              onIncrementMindscape={() => handleIncrement(targetName, channel)}
+                              onDecrementMindscape={() => handleDecrement(targetName)}
+                            />
+                          </button>
+                        )
+                      }}
+                    </For>
+                  )
+                })()}
               </div>
             </div>
           )}
@@ -237,7 +281,12 @@ export const TargetPicker: Component = () => {
           onDragOver={e => onSelectedDragOver(e)}
           onDrop={e => onSelectedDrop(e)}
         >
-          <For each={selectedEntries()}>
+          <For each={selectedEntries().filter((t) => {
+            const meta = t.channel === 'agent' ? game.resolveAgent(t.name) : game.resolveWEngine(t.name)
+            const rarity = meta?.rarity ?? 5
+            return isARankMode() ? rarity === 4 : rarity === 5
+          })}
+          >
             {(t, i) => {
               const beforeIndex = () => {
                 const d = dragIndex()

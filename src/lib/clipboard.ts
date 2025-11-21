@@ -18,6 +18,7 @@ export function formatPlanCopyText(
   scenario: Scenario,
   selectedTargets: { name: string, channel: 'agent' | 'engine' }[],
   plan: PhasePlan,
+  checkRarity?: (name: string) => number,
 ): string {
   const lines: string[] = []
   lines.push(`Scenario: ${scenario}`)
@@ -53,7 +54,7 @@ export function formatPlanCopyText(
 
     lines.push(`- Agents cost: ${formatNumber(phase.agentCost)} (${phase.canAffordAgentStart ? 'affordable at start' : 'not met at start'} / ${phase.canAffordAgentEnd ? 'affordable at end' : 'not met at end'})`)
     {
-      const br = computeChannelBreakdown(idx, 'agent', plan, scenario, inputs)
+      const br = computeChannelBreakdown(idx, 'agent', plan, scenario, inputs, undefined, checkRarity)
       if (br) {
         const raw = br.parts.map(p => p.value)
         const disp = Math.round(phase.agentCost)
@@ -66,7 +67,7 @@ export function formatPlanCopyText(
 
     lines.push(`- Engines cost: ${formatNumber(phase.engineCost)} (${phase.canAffordEngineStart ? 'affordable at start' : 'not met at start'} / ${phase.canAffordEngineEnd ? 'affordable at end' : 'not met at end'})`)
     {
-      const br = computeChannelBreakdown(idx, 'engine', plan, scenario, inputs)
+      const br = computeChannelBreakdown(idx, 'engine', plan, scenario, inputs, undefined, checkRarity)
       if (br) {
         const raw = br.parts.map(p => p.value)
         const disp = Math.round(phase.engineCost)

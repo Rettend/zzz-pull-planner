@@ -1,6 +1,6 @@
 import type { Component } from 'solid-js'
 import { createMemo, Show } from 'solid-js'
-import { RANK_S_ICON, resolveAttributeIcon } from '~/lib/constants'
+import { ICON_AGENT_RANK_A, ICON_AGENT_RANK_S, ICON_ITEM_RANK_A, ICON_ITEM_RANK_S, resolveAttributeIcon } from '~/lib/constants'
 import { useGame } from '~/stores/game'
 
 const CARD_WIDTH = 100 // px
@@ -46,6 +46,15 @@ export const TargetIconCard: Component<{
   const disableIncrement = createMemo(() => props.selected ? (props.mindscapeLevel ?? 0) >= maxMindscape() : false)
   const disableDecrement = createMemo(() => !props.selected)
 
+  const rankIcon = createMemo(() => {
+    const meta = agent() ?? wengine()
+    const rarity = meta?.rarity ?? 5
+    if (isAgent()) {
+      return rarity === 5 ? ICON_AGENT_RANK_S : ICON_AGENT_RANK_A
+    }
+    return rarity === 5 ? ICON_ITEM_RANK_S : ICON_ITEM_RANK_A
+  })
+
   return (
     <div class={`group border-2 ${borderClass()} rounded-xl bg-zinc-800/50 h-100px shadow-sm transition-colors relative ${cursorClass()}  ${props.context === 'selector' && !props.selected ? 'hover:border-emerald-500/70' : ''}`} style={{ width: props.showMindscapeControls ? `${CARD_WITH_PANEL_WIDTH}px` : `${CARD_WIDTH}px` }} title={props.name}>
       <div class="rounded-inherit inset-0 absolute overflow-hidden">
@@ -53,7 +62,7 @@ export const TargetIconCard: Component<{
           <img src={bg() || ''} alt={props.name} class={`h-full w-full inset-0 absolute object-cover ${props.muted ? 'grayscale brightness-75 opacity-80' : ''}`} />
 
           {/* Rank badge */}
-          <img src={RANK_S_ICON} alt="S" class="h-6 w-6 left-1 top-1 absolute drop-shadow" />
+          <img src={rankIcon()} alt="Rank" class="h-6 w-6 left-1 top-1 absolute drop-shadow" />
 
           {/* Attribute */}
           <Show when={isAgent() && attrIcon()}>

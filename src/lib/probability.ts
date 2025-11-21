@@ -53,6 +53,19 @@ export function getDefaultHazard(channel: ChannelType): { hazards: number[], cap
   }
 }
 
+export function getARankHazard(baseRate: number): { hazards: number[], cap: number } {
+  const cap = 10
+  const hazards = Array.from({ length: cap }, (_, i) => {
+    const k = i + 1
+    if (k === 10)
+      return 1.0
+    if (k === 9)
+      return Math.min(1.0, baseRate + 0.4)
+    return baseRate
+  })
+  return { hazards, cap }
+}
+
 // Slice hazard by current pity p0 (0..cap-1). Returns remaining hazards for j=1..(cap-p0), enforcing CMF(remCap)=1.
 export function hazardWithPityOffset(allHazards: number[], p0: number): number[] {
   const cap = allHazards.length
@@ -136,8 +149,8 @@ export function featuredCostPmf(
   qFeatured: number,
   customHazards?: number[],
 ): number[] {
-  const { hazards, cap } = getDefaultHazard(channel)
-  const base = customHazards && customHazards.length === cap ? customHazards : hazards
+  const { hazards } = getDefaultHazard(channel)
+  const base = customHazards ?? hazards
   const h = hazardWithPityOffset(base, pity)
   const pmfT1 = firstSPmfFromHazard(h)
   if (guaranteed)
@@ -155,6 +168,63 @@ export function featuredCostPmf(
   }
   const s = out.reduce((acc, v) => acc + v, 0)
   if (s > 0 && Math.abs(1 - s) > 1e-9) {
+    for (let i = 0; i < out.length; i++) out[i] /= s
+  }
+  return out
+}
+
+export function geometricCostPmf(
+  hazards: number[],
+  pSuccess: number,
+  limitMass: number = 0.999,
+): number[] {
+  // Cost of a single drop
+  const pmfOne = firstSPmfFromHazard(hazards)
+
+  // We want to compute PMF of Total Cost = Sum(Cost_i) for i=1..N
+  // Where N ~ Geometric(pSuccess)
+  // P(N=k) = (1-p)^(k-1) * p
+
+  // Result = Sum_{k=1..inf} P(N=k) * PMF_k
+  // where PMF_k is convolution of k copies of pmfOne
+
+  let out: number[] = []
+  let currentConvolved = [...pmfOne] // PMF for k=1
+  const currentProbN = pSuccess // P(N=1)
+  let accumulatedProb = 0
+
+  // k=1
+  out = Array.from({ length: currentConvolved.length }, () => 0)
+  for (let i = 0; i < currentConvolved.length; i++) {
+    out[i] += currentConvolved[i] * currentProbN
+  }
+  accumulatedProb += currentProbN
+
+  // k=2..max
+  // We stop when accumulated probability of N is high enough
+  let k = 2
+  while (accumulatedProb < limitMass && k < 50) { // Safety break at 50 trials
+    const pN = (1 - pSuccess) ** (k - 1) * pSuccess
+    currentConvolved = convolveDiscrete(currentConvolved, pmfOne)
+
+    // Add to out
+    if (currentConvolved.length > out.length) {
+      const newOut = Array.from({ length: currentConvolved.length }, () => 0)
+      for (let i = 0; i < out.length; i++) newOut[i] = out[i]
+      out = newOut
+    }
+
+    for (let i = 0; i < currentConvolved.length; i++) {
+      out[i] += currentConvolved[i] * pN
+    }
+
+    accumulatedProb += pN
+    k++
+  }
+
+  // Normalize
+  const s = out.reduce((acc, v) => acc + v, 0)
+  if (s > 0) {
     for (let i = 0; i < out.length; i++) out[i] /= s
   }
   return out

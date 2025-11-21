@@ -1,5 +1,5 @@
 import type { PhasePlan, PlannerInputs, Scenario } from '~/lib/planner'
-import { costAtScenario, costStatsFromPmf, featuredCostPmf, firstSPmfFromHazard, getDefaultHazard, hazardWithPityOffset } from '~/lib/probability'
+import { costAtScenario, costStatsFromPmf, featuredCostPmf, firstSPmfFromHazard, geometricCostPmf, getARankHazard, getDefaultHazard, hazardWithPityOffset } from '~/lib/probability'
 
 export type Channel = 'agent' | 'engine'
 
@@ -28,6 +28,7 @@ export function computeChannelBreakdown(
   scenario: Scenario,
   inputs: PlannerInputs,
   targetNames?: string[],
+  checkRarity?: (name: string) => number,
 ): ChannelBreakdownResult | null {
   const luckMode = inputs.luckMode ?? 'realistic'
   const q = getFeaturedProbability(luckMode, channel)
@@ -40,7 +41,8 @@ export function computeChannelBreakdown(
   if (names.length === 0)
     return null
 
-  const { hazards } = getDefaultHazard(channel)
+  const { hazards: sHazards } = getDefaultHazard(channel)
+  const { hazards: aHazards } = getARankHazard(channel === 'agent' ? 0.094 : 0.150)
 
   let pity = 0
   let guaranteed = false
@@ -58,18 +60,40 @@ export function computeChannelBreakdown(
   }
 
   const parts: BreakdownPart[] = []
-  for (const _ of names) {
-    const h1 = hazardWithPityOffset(hazards, Math.max(0, pity))
-    const first = costAtScenario(scenario, costStatsFromPmf(firstSPmfFromHazard(h1)))
-    const total = guaranteed
-      ? first
-      : costAtScenario(scenario, costStatsFromPmf(featuredCostPmf(channel, Math.max(0, pity), false, q, hazards)))
-    const off = Math.max(0, total - first)
-    parts.push({ value: first, kind: 'first' })
-    if (off > 0)
-      parts.push({ value: off, kind: 'off' })
-    pity = 0
-    guaranteed = false
+  for (const name of names) {
+    const rarity = checkRarity ? checkRarity(name) : 5
+
+    if (rarity === 4) {
+      // A-Rank Logic
+      // const baseRate = channel === 'agent' ? 0.094 : 0.150 // Unused
+      const winRate = 0.25
+      let pSuccess = winRate
+      if (luckMode === 'best')
+        pSuccess = 1.0
+      if (luckMode === 'worst')
+        pSuccess = 0.10
+
+      // For A-ranks, we don't track pity in the same granular way for the breakdown
+      // We assume 0 pity start for each A-rank calculation as per planner logic
+      const pmf = geometricCostPmf(aHazards, pSuccess)
+      const cost = costAtScenario(scenario, costStatsFromPmf(pmf))
+      parts.push({ value: cost, kind: 'first' })
+    }
+    else {
+      // S-Rank Logic
+      const h1 = hazardWithPityOffset(sHazards, Math.max(0, pity))
+      const first = costAtScenario(scenario, costStatsFromPmf(firstSPmfFromHazard(h1)))
+      const total = guaranteed
+        ? first
+        : costAtScenario(scenario, costStatsFromPmf(featuredCostPmf(channel, Math.max(0, pity), false, q, sHazards)))
+      const off = Math.max(0, total - first)
+      parts.push({ value: first, kind: 'first' })
+      if (off > 0)
+        parts.push({ value: off, kind: 'off' })
+
+      pity = 0
+      guaranteed = false
+    }
   }
   const total = parts.reduce((a, b) => a + b.value, 0)
   return { pity: Math.max(0, pity), parts, total }

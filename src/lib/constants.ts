@@ -1,4 +1,7 @@
-import IconRankS from '~/assets/Icon_Rank_S.webp'
+import IconAgentRankA from '~/assets/ranks/Icon_Agent_Rank_A.webp'
+import IconAgentRankS from '~/assets/ranks/Icon_Agent_Rank_S.webp'
+import IconItemRankA from '~/assets/ranks/Icon_Item_Rank_A.webp'
+import IconItemRankS from '~/assets/ranks/Icon_Item_Rank_S.webp'
 import IconUnknown from '~/assets/Unknown.webp'
 import { resolveAttributeIconByName, resolveSpecialtyIconByName } from '../utils/assets'
 
@@ -9,6 +12,7 @@ export type ChannelType = 'agent' | 'engine'
 
 export interface AgentMeta {
   name: string
+  rarity: number
   attribute: Attribute
   specialty: Specialty
   icon: string
@@ -16,6 +20,7 @@ export interface AgentMeta {
 
 export interface WEngineMeta {
   name: string
+  rarity: number
   specialty: Specialty
   icon: string
 }
@@ -27,6 +32,7 @@ export interface Banner {
   start: string // ISO date
   end: string // ISO date
   featured: string // target name
+  featuredARanks: string[]
 }
 
 export const ATTRIBUTE_ICON: Record<Attribute, string> = {
@@ -48,7 +54,10 @@ export const SPECIALTY_ICON: Record<Specialty, string> = {
   Support: resolveSpecialtyIconByName('Support'),
 }
 
-export const RANK_S_ICON = IconRankS
+export const ICON_AGENT_RANK_S = IconAgentRankS
+export const ICON_AGENT_RANK_A = IconAgentRankA
+export const ICON_ITEM_RANK_S = IconItemRankS
+export const ICON_ITEM_RANK_A = IconItemRankA
 export const UNKNOWN_ICON = IconUnknown
 
 export function resolveAttributeIcon(attr?: Attribute): string {

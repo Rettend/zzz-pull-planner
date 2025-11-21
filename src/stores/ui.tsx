@@ -12,6 +12,7 @@ interface UILocalState {
   plannerInputs: PlannerInputs
   scenario: Scenario
   phaseTimings: Record<number, 'start' | 'end'>
+  planningMode: 's-rank' | 'a-rank'
 }
 
 type UIStoreState = UIState & {
@@ -23,6 +24,7 @@ interface UIStoreActions {
   setPlannerInputs: (updates: Partial<PlannerInputs>) => void
   setScenario: (scenario: UILocalState['scenario']) => void
   setPhaseTiming: (index: number, t: 'start' | 'end') => void
+  setPlanningMode: (mode: 's-rank' | 'a-rank') => void
   resetPlannerInputs: () => void
 }
 
@@ -48,6 +50,7 @@ export function UIStoreProvider(props: ParentProps<{ accountId: string }>) {
     plannerInputs: defaultPlannerInputs,
     scenario: 'p60',
     phaseTimings: {},
+    planningMode: 's-rank',
   })
   const storageKey = untrack(() => `ui:${props.accountId}`)
   const [local, setLocal] = makePersisted([baseLocal, setBaseLocal], {
@@ -72,6 +75,9 @@ export function UIStoreProvider(props: ParentProps<{ accountId: string }>) {
     },
     setPhaseTiming: (index, t) => {
       setLocal('phaseTimings', index, t)
+    },
+    setPlanningMode: (mode) => {
+      setLocal('planningMode', mode)
     },
     resetPlannerInputs: () => {
       setLocal('plannerInputs', defaultPlannerInputs)

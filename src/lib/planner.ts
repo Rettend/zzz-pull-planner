@@ -1,5 +1,5 @@
 import type { Banner, ChannelType } from '~/lib/constants'
-import { convolveDiscrete, costAtScenario, costStatsFromPmf, featuredCostPmf } from '~/lib/probability'
+import { convolveDiscrete, costAtScenario, costStatsFromPmf, featuredCostPmf, geometricCostPmf, getARankHazard } from '~/lib/probability'
 
 export type Scenario = 'p50' | 'p60' | 'p75' | 'p90' | 'ev'
 
@@ -90,6 +90,34 @@ export function costToFeaturedEngine(
   return costAtScenario(scenario, stats)
 }
 
+export function costToFeaturedARank(
+  channel: ChannelType,
+  scenario: Scenario,
+  luckMode: 'best' | 'realistic' | 'worst' = 'realistic',
+): number {
+  // A-Rank Logic:
+  // Agent: 9.4% Base, 50% Featured (2 specific -> 25% specific)
+  // Engine: 15% Base, 50% Featured (2 specific -> 25% specific)
+
+  const baseRate = channel === 'agent' ? 0.094 : 0.150
+  const winRate = 0.25 // 25% chance for specific featured A-rank
+
+  // Adjust 'pSuccess' based on luckMode
+  // Base success rate for specific featured is 0.25 (approx)
+  // We model this as geometric trials.
+  let pSuccess = winRate
+  if (luckMode === 'best')
+    pSuccess = 1.0 // Get it first try
+  if (luckMode === 'worst')
+    pSuccess = 0.10 // Very unlucky (10 trials avg)
+
+  const { hazards } = getARankHazard(baseRate)
+
+  const pmf = geometricCostPmf(hazards, pSuccess)
+  const stats = costStatsFromPmf(pmf)
+  return costAtScenario(scenario, stats)
+}
+
 interface SelectedTargetInput { name: string, channel: ChannelType }
 
 function rangeKey(b: Banner): string {
@@ -126,13 +154,20 @@ export function computePlan(
 
   const ranges = computePhaseRanges(banners)
 
-  // Create a map for faster lookup
   const bannerMap = new Map<string, Banner>()
+  const rarityMap = new Map<string, number>() // 5 for S, 4 for A
+
   for (const b of banners) {
     bannerMap.set(b.featured, b)
+    rarityMap.set(b.featured, 5)
+    for (const a of b.featuredARanks) {
+      if (!bannerMap.has(a)) {
+        bannerMap.set(a, b)
+      }
+      rarityMap.set(a, 4)
+    }
   }
 
-  // Assign targets to phases
   const targetsByPhase: SelectedTargetInput[][] = ranges.map(() => [])
 
   for (const t of selected) {
@@ -211,18 +246,39 @@ export function computePlan(
     const agentState = { ...agentStateIn }
     const engineState = { ...engineStateIn }
     for (const t of targetsInPhase) {
-      const pmf = t.channel === 'agent'
-        ? featuredCostPmf('agent', agentState.pity, agentState.guaranteed, qAgent)
-        : featuredCostPmf('engine', engineState.pity, engineState.guaranteed, qEngine)
-      pmfTotal = convolveDiscrete(pmfTotal, pmf)
-      if (t.channel === 'agent') {
-        agentState.pity = 0
-        agentState.guaranteed = false
+      const rarity = rarityMap.get(t.name) ?? 5
+      let pmf: number[]
+
+      if (rarity === 4) {
+        // A-Rank Logic
+        const baseRate = t.channel === 'agent' ? 0.094 : 0.150
+        const winRate = 0.25
+        let pSuccess = winRate
+        if (luckMode === 'best')
+          pSuccess = 1.0
+        if (luckMode === 'worst')
+          pSuccess = 0.10
+
+        const { hazards } = getARankHazard(baseRate)
+        pmf = geometricCostPmf(hazards, pSuccess)
       }
       else {
-        engineState.pity = 0
-        engineState.guaranteed = false
+        // S-Rank Logic
+        pmf = t.channel === 'agent'
+          ? featuredCostPmf('agent', agentState.pity, agentState.guaranteed, qAgent)
+          : featuredCostPmf('engine', engineState.pity, engineState.guaranteed, qEngine)
+
+        if (t.channel === 'agent') {
+          agentState.pity = 0
+          agentState.guaranteed = false
+        }
+        else {
+          engineState.pity = 0
+          engineState.guaranteed = false
+        }
       }
+
+      pmfTotal = convolveDiscrete(pmfTotal, pmf)
     }
     const b = Math.max(0, Math.floor(budget))
     let acc = 0
@@ -275,9 +331,17 @@ export function computePlan(
 
     for (const t of targets) {
       const isAgent = t.channel === 'agent'
-      const cost = isAgent
-        ? costToFeaturedAgent(agentStateSim.pity, agentStateSim.guaranteed, qAgent, scenario)
-        : costToFeaturedEngine(engineStateSim.pity, engineStateSim.guaranteed, qEngine, scenario)
+      const rarity = rarityMap.get(t.name) ?? 5
+
+      let cost = 0
+      if (rarity === 4) {
+        cost = costToFeaturedARank(t.channel, scenario, luckMode)
+      }
+      else {
+        cost = isAgent
+          ? costToFeaturedAgent(agentStateSim.pity, agentStateSim.guaranteed, qAgent, scenario)
+          : costToFeaturedEngine(engineStateSim.pity, engineStateSim.guaranteed, qEngine, scenario)
+      }
 
       const nextAgentState = { ...agentStateSim }
       const nextEngineState = { ...engineStateSim }
@@ -320,6 +384,11 @@ export function computePlan(
         boughtNames.push(t.name)
         agentStateSim.pity = nextAgentState.pity
         agentStateSim.guaranteed = nextAgentState.guaranteed
+
+        if (rarity === 4) {
+          agentStateSim.pity = Math.min(89, agentStateSim.pity + Math.floor(cost))
+          agentStateSim.guaranteed = currentAgentState.guaranteed // Unchanged
+        }
       }
       else {
         spentEngines += cost
@@ -327,6 +396,11 @@ export function computePlan(
         boughtNames.push(t.name)
         engineStateSim.pity = nextEngineState.pity
         engineStateSim.guaranteed = nextEngineState.guaranteed
+
+        if (rarity === 4) {
+          engineStateSim.pity = Math.min(79, engineStateSim.pity + Math.floor(cost))
+          engineStateSim.guaranteed = currentEngineState.guaranteed
+        }
       }
     }
 

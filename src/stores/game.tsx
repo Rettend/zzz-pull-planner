@@ -34,15 +34,29 @@ export const GameDataProvider: ParentComponent = (props) => {
   })
 
   const banners = () => {
-    const fetched = data()?.banners || []
-    return fetched.map(b => ({
-      id: b.id,
-      title: b.title,
-      type: b.type,
-      start: b.start,
-      end: b.end,
-      featured: b.featured, // This is the ID (slug) from DB
-    }))
+    const d = data()
+    const fetched = d?.banners || []
+    return fetched.map((b) => {
+      const featuredARanks = b.featuredTargets.filter((id) => {
+        // Check agent rarity
+        if (d?.agents[id]?.rarity === 4)
+          return true
+        // Check engine rarity
+        if (d?.wEngines[id]?.rarity === 4)
+          return true
+        return false
+      })
+
+      return {
+        id: b.id,
+        title: b.title,
+        type: b.type,
+        start: b.start,
+        end: b.end,
+        featured: b.featured,
+        featuredARanks,
+      }
+    })
   }
 
   const resolveAgent = (nameOrId: string): AgentMeta | undefined => {
@@ -53,6 +67,7 @@ export const GameDataProvider: ParentComponent = (props) => {
         const a = d.agents[nameOrId]
         return {
           name: a.name,
+          rarity: a.rarity,
           attribute: a.attribute as Attribute,
           specialty: a.specialty as Specialty,
           icon: getFullIconUrl(a.icon) ?? UNKNOWN_ICON,
@@ -63,6 +78,7 @@ export const GameDataProvider: ParentComponent = (props) => {
       if (found) {
         return {
           name: found.name,
+          rarity: found.rarity,
           attribute: found.attribute as Attribute,
           specialty: found.specialty as Specialty,
           icon: getFullIconUrl(found.icon) ?? UNKNOWN_ICON,
@@ -79,6 +95,7 @@ export const GameDataProvider: ParentComponent = (props) => {
         const w = d.wEngines[nameOrId]
         return {
           name: w.name,
+          rarity: w.rarity,
           specialty: w.specialty as Specialty,
           icon: getFullIconUrl(w.icon) ?? UNKNOWN_ICON,
         }
@@ -87,6 +104,7 @@ export const GameDataProvider: ParentComponent = (props) => {
       if (found) {
         return {
           name: found.name,
+          rarity: found.rarity,
           specialty: found.specialty as Specialty,
           icon: getFullIconUrl(found.icon) ?? UNKNOWN_ICON,
         }

@@ -24,9 +24,19 @@ export default function Home() {
   const activeBanners = createMemo(() => game.banners().filter(b => !isBannerPast(b)))
 
   const selectedEntries = createMemo(() => (targets?.selected ?? []).slice().sort((a, b) => a.priority - b.priority))
-  const selectedTargets = createMemo<SelectedTargetInput[]>(() => selectedEntries().map(t => ({ name: t.name, channel: t.channel })))
-  const groupedTargets = createMemo(() => aggregateTargets(selectedEntries()))
-  const currentEntry = createMemo(() => selectedEntries()[0] ?? null)
+
+  const filteredEntries = createMemo(() => {
+    const mode = ui.local.planningMode
+    return selectedEntries().filter((t) => {
+      const meta = t.channel === 'agent' ? game.resolveAgent(t.name) : game.resolveWEngine(t.name)
+      const rarity = meta?.rarity ?? 5
+      return mode === 's-rank' ? rarity === 5 : rarity === 4
+    })
+  })
+
+  const selectedTargets = createMemo<SelectedTargetInput[]>(() => filteredEntries().map(t => ({ name: t.name, channel: t.channel })))
+  const groupedTargets = createMemo(() => aggregateTargets(filteredEntries()))
+  const currentEntry = createMemo(() => filteredEntries()[0] ?? null)
   const currentTarget = createMemo<SelectedTargetInput | null>(() => {
     const entry = currentEntry()
     return entry ? { name: entry.name, channel: entry.channel } : null
@@ -107,6 +117,7 @@ export default function Home() {
             groupedTargets={groupedTargets}
             phaseTimings={phaseTimings}
             onPhaseTimingChange={actions.setPhaseTiming}
+            planningMode={() => ui.local.planningMode}
           />
         </div>
 

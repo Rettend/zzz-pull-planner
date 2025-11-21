@@ -139,13 +139,14 @@ export function calculateDisplayedCost(params: {
   inputs: PlannerInputs
   selectedTargets: SelectedTargetInput[]
   ranges: string[]
+  checkRarity?: (name: string) => number
 }): number {
-  const { banners, plan, phase, channel, scenario, inputs, selectedTargets, ranges } = params
+  const { banners, plan, phase, channel, scenario, inputs, selectedTargets, ranges, checkRarity } = params
   const actual = Math.round(planCost(plan, phase, channel))
   if (actual > 0)
     return actual
   const names = namesForPhaseChannel(banners, selectedTargets, ranges, phase, channel)
-  const breakdown = computeChannelBreakdown(phase, channel, plan, scenario, inputs, names)
+  const breakdown = computeChannelBreakdown(phase, channel, plan, scenario, inputs, names, checkRarity)
   if (!breakdown)
     return 0
   const raw = breakdown.parts.map(p => p.value)
@@ -162,10 +163,11 @@ export function channelBreakdownParts(params: {
   selectedTargets: SelectedTargetInput[]
   ranges: string[]
   displayedTotal: number
+  checkRarity?: (name: string) => number
 }): RoundedBreakdownPart[] | null {
-  const { banners, plan, phase, channel, scenario, inputs, selectedTargets, ranges, displayedTotal } = params
+  const { banners, plan, phase, channel, scenario, inputs, selectedTargets, ranges, displayedTotal, checkRarity } = params
   const names = namesForPhaseChannel(banners, selectedTargets, ranges, phase, channel)
-  const breakdown = computeChannelBreakdown(phase, channel, plan, scenario, inputs, names)
+  const breakdown = computeChannelBreakdown(phase, channel, plan, scenario, inputs, names, checkRarity)
   if (!breakdown)
     return null
   const rawValues = breakdown.parts.map(p => p.value)
