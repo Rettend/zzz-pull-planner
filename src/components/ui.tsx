@@ -138,13 +138,24 @@ export function numberInput<K extends NumberKeys & keyof PlannerInputs>(
   inputs: () => PlannerInputs,
   setPlannerInput: (key: K, value: PlannerInputs[K]) => void,
   key: K,
+  options?: { min?: number, max?: number },
 ) {
   return {
     value: String(inputs()[key] ?? ''),
     onInput: (e: InputEvent & { currentTarget: HTMLInputElement }) => {
       const v = e.currentTarget.value.trim()
-      const n = v === '' ? 0 : Number(v)
-      setPlannerInput(key, Number.isFinite(n) ? n : 0)
+      if (v === '') {
+        setPlannerInput(key, 0)
+        return
+      }
+      let n = Number(v)
+      if (!Number.isNaN(n)) {
+        if (options?.min !== undefined)
+          n = Math.max(options.min, n)
+        if (options?.max !== undefined)
+          n = Math.min(options.max, n)
+        setPlannerInput(key, n)
+      }
     },
   }
 }

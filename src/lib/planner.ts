@@ -94,6 +94,8 @@ export function costToFeaturedARank(
   channel: ChannelType,
   scenario: Scenario,
   luckMode: 'best' | 'realistic' | 'worst' = 'realistic',
+  pity = 0,
+  guaranteed = false,
 ): number {
   // A-Rank Logic:
   // Agent: 9.4% Base, 50% Featured (2 specific -> 25% specific)
@@ -106,6 +108,9 @@ export function costToFeaturedARank(
   // Base success rate for specific featured is 0.25 (approx)
   // We model this as geometric trials.
   let pSuccess = winRate
+  if (guaranteed)
+    pSuccess = 0.5
+
   if (luckMode === 'best')
     pSuccess = 1.0 // Get it first try
   if (luckMode === 'worst')
@@ -113,8 +118,9 @@ export function costToFeaturedARank(
 
   const { hazards } = getARankHazard(baseRate)
 
-  const pmf = geometricCostPmf(hazards, pSuccess)
+  const pmf = geometricCostPmf(hazards, pSuccess, 0.999, pity)
   const stats = costStatsFromPmf(pmf)
+
   return costAtScenario(scenario, stats)
 }
 
@@ -161,9 +167,8 @@ export function computePlan(
     bannerMap.set(b.featured, b)
     rarityMap.set(b.featured, 5)
     for (const a of b.featuredARanks) {
-      if (!bannerMap.has(a)) {
-        bannerMap.set(a, b)
-      }
+      // For A-ranks, always update to use the latest banner
+      bannerMap.set(a, b)
       rarityMap.set(a, 4)
     }
   }
@@ -254,13 +259,19 @@ export function computePlan(
         const baseRate = t.channel === 'agent' ? 0.094 : 0.150
         const winRate = 0.25
         let pSuccess = winRate
+
+        const state = t.channel === 'agent' ? agentState : engineState
+        if (state.guaranteed) {
+          pSuccess = 0.5
+        }
+
         if (luckMode === 'best')
           pSuccess = 1.0
         if (luckMode === 'worst')
           pSuccess = 0.10
 
         const { hazards } = getARankHazard(baseRate)
-        pmf = geometricCostPmf(hazards, pSuccess)
+        pmf = geometricCostPmf(hazards, pSuccess, 0.999, state.pity)
       }
       else {
         // S-Rank Logic
@@ -335,7 +346,8 @@ export function computePlan(
 
       let cost = 0
       if (rarity === 4) {
-        cost = costToFeaturedARank(t.channel, scenario, luckMode)
+        const state = isAgent ? agentStateSim : engineStateSim
+        cost = costToFeaturedARank(t.channel, scenario, luckMode, state.pity, state.guaranteed)
       }
       else {
         cost = isAgent
@@ -386,8 +398,10 @@ export function computePlan(
         agentStateSim.guaranteed = nextAgentState.guaranteed
 
         if (rarity === 4) {
-          agentStateSim.pity = Math.min(89, agentStateSim.pity + Math.floor(cost))
-          agentStateSim.guaranteed = currentAgentState.guaranteed // Unchanged
+          // If we are targeting A-ranks, we assume the pity input tracks A-rank pity
+          // So we reset it after a successful pull
+          agentStateSim.pity = 0
+          agentStateSim.guaranteed = false
         }
       }
       else {
@@ -398,8 +412,8 @@ export function computePlan(
         engineStateSim.guaranteed = nextEngineState.guaranteed
 
         if (rarity === 4) {
-          engineStateSim.pity = Math.min(79, engineStateSim.pity + Math.floor(cost))
-          engineStateSim.guaranteed = currentEngineState.guaranteed
+          engineStateSim.pity = 0
+          engineStateSim.guaranteed = false
         }
       }
     }

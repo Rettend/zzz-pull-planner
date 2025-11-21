@@ -68,6 +68,11 @@ export function computeChannelBreakdown(
       // const baseRate = channel === 'agent' ? 0.094 : 0.150 // Unused
       const winRate = 0.25
       let pSuccess = winRate
+      
+      if (guaranteed) {
+        pSuccess = 0.5
+      }
+
       if (luckMode === 'best')
         pSuccess = 1.0
       if (luckMode === 'worst')
@@ -75,9 +80,13 @@ export function computeChannelBreakdown(
 
       // For A-ranks, we don't track pity in the same granular way for the breakdown
       // We assume 0 pity start for each A-rank calculation as per planner logic
-      const pmf = geometricCostPmf(aHazards, pSuccess)
+      const pmf = geometricCostPmf(aHazards, pSuccess, 0.999, Math.max(0, pity))
       const cost = costAtScenario(scenario, costStatsFromPmf(pmf))
       parts.push({ value: cost, kind: 'first' })
+      
+      // Reset for next
+      pity = 0
+      guaranteed = false
     }
     else {
       // S-Rank Logic

@@ -20,7 +20,7 @@ export function PlannerInputsPanel() {
     <section class="p-4 border border-zinc-700 rounded-xl bg-zinc-800/50 space-y-4">
       <h2 class="text-lg text-emerald-300 tracking-wide font-bold">Inputs</h2>
       <div class="gap-3 grid grid-cols-2">
-        <NumberField label="Pulls on hand P0" {...numberInput(inputs, actions.setPlannerInput, 'pullsOnHand')} />
+        <NumberField label="Pulls on hand P0" min={0} {...numberInput(inputs, actions.setPlannerInput, 'pullsOnHand', { min: 0 })} />
         <span />
 
         <For each={ranges()}>
@@ -41,10 +41,20 @@ export function PlannerInputsPanel() {
 
         <div class="my-2 bg-zinc-700/50 col-span-2 h-px" />
 
-        <NumberField label="Agent pity (pA)" {...numberInput(inputs, actions.setPlannerInput, 'pityAgentStart')} />
+        <NumberField
+          label="Agent pity (pA)"
+          min={0}
+          max={ui.local.planningMode === 's-rank' ? 89 : 9}
+          {...numberInput(inputs, actions.setPlannerInput, 'pityAgentStart', { min: 0, max: ui.local.planningMode === 's-rank' ? 89 : 9 })}
+        />
         <CheckboxField label="Agent guaranteed" {...boolInput(inputs, actions.setPlannerInput, 'guaranteedAgentStart')} />
 
-        <NumberField label="W-Engine pity (pW)" {...numberInput(inputs, actions.setPlannerInput, 'pityEngineStart')} />
+        <NumberField
+          label="W-Engine pity (pW)"
+          min={0}
+          max={ui.local.planningMode === 's-rank' ? 79 : 9}
+          {...numberInput(inputs, actions.setPlannerInput, 'pityEngineStart', { min: 0, max: ui.local.planningMode === 's-rank' ? 79 : 9 })}
+        />
         <CheckboxField label="W-Engine guaranteed" {...boolInput(inputs, actions.setPlannerInput, 'guaranteedEngineStart')} />
       </div>
 

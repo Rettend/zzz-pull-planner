@@ -30,11 +30,27 @@ export function buildPhaseRanges(banners: Banner[]): string[] {
 }
 
 export function phaseOfName(banners: Banner[], name: string, ranges: string[]): PhaseIndex {
-  const banner = banners.find(x => x.featured === name)
-  if (!banner)
-    return 0 // Default to first phase if not found
-  const idx = ranges.indexOf(rangeKey(banner))
-  return idx < 0 ? 0 : idx
+  // Check S-rank (featured)
+  const sFeaturedBanner = banners.find(x => x.featured === name)
+  if (sFeaturedBanner) {
+    const idx = ranges.indexOf(rangeKey(sFeaturedBanner))
+    return idx < 0 ? 0 : idx
+  }
+  
+  // Check A-rank (featuredARanks) - use latest banner if appears on multiple
+  let aRankBanner: Banner | undefined
+  for (const b of banners) {
+    if (b.featuredARanks?.includes(name)) {
+      aRankBanner = b // Keep updating to get the latest
+    }
+  }
+  
+  if (aRankBanner) {
+    const idx = ranges.indexOf(rangeKey(aRankBanner))
+    return idx < 0 ? 0 : idx
+  }
+  
+  return 0 // Default to first phase if not found
 }
 
 export function namesForPhaseChannel(

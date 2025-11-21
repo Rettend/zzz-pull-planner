@@ -70,12 +70,7 @@ export function getARankHazard(baseRate: number): { hazards: number[], cap: numb
 export function hazardWithPityOffset(allHazards: number[], p0: number): number[] {
   const cap = allHazards.length
   const p = Math.max(0, Math.min(cap - 1, p0))
-  const remain = cap - p
-  const sliced = allHazards.slice(p, cap)
-  let survival = 1
-  for (let i = 0; i < remain - 1; i++) survival *= (1 - Math.max(0, Math.min(1, sliced[i])))
-  sliced[remain - 1] = Math.max(0, Math.min(1, 1 - survival))
-  return sliced
+  return allHazards.slice(p, cap)
 }
 
 export function firstSPmfFromHazard(h: number[]): number[] {
@@ -177,19 +172,22 @@ export function geometricCostPmf(
   hazards: number[],
   pSuccess: number,
   limitMass: number = 0.999,
+  pity: number = 0,
 ): number[] {
-  // Cost of a single drop
+  // Cost of a single drop (fresh)
   const pmfOne = firstSPmfFromHazard(hazards)
+  // Cost of the first drop (with pity)
+  const pmfOnePity = pity > 0 ? firstSPmfFromHazard(hazardWithPityOffset(hazards, pity)) : pmfOne
 
   // We want to compute PMF of Total Cost = Sum(Cost_i) for i=1..N
   // Where N ~ Geometric(pSuccess)
   // P(N=k) = (1-p)^(k-1) * p
 
   // Result = Sum_{k=1..inf} P(N=k) * PMF_k
-  // where PMF_k is convolution of k copies of pmfOne
+  // where PMF_k is convolution of k copies of pmfOne (but first one is pmfOnePity)
 
   let out: number[] = []
-  let currentConvolved = [...pmfOne] // PMF for k=1
+  let currentConvolved = [...pmfOnePity] // PMF for k=1
   const currentProbN = pSuccess // P(N=1)
   let accumulatedProb = 0
 
