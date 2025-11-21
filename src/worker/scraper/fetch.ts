@@ -8,7 +8,7 @@ export async function downloadImage(url: string): Promise<ArrayBuffer | null> {
   try {
     const res = await fetch(url, {
       headers: {
-        'Accept': 'image/webp,image/png,image/*,*/*',
+        Accept: 'image/webp,image/png,image/*,*/*',
       },
     })
     if (!res.ok) {

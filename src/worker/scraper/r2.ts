@@ -3,7 +3,7 @@ import type { Env } from './types'
 export async function uploadToR2(env: Env, key: string, data: ArrayBuffer, contentType: string) {
   try {
     await env.ASSETS_BUCKET.put(key, data, {
-      httpMetadata: { 
+      httpMetadata: {
         contentType,
         cacheControl: 'public, max-age=31536000, immutable',
       },
