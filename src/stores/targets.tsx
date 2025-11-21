@@ -4,7 +4,6 @@ import type { Banner, ChannelType } from '~/lib/constants'
 import { makePersisted, storageSync } from '@solid-primitives/storage'
 import { batch, createContext, untrack, useContext } from 'solid-js'
 import { createStore } from 'solid-js/store'
-import { BANNERS } from '~/lib/constants'
 
 export interface SelectedTarget {
   id: string
@@ -193,7 +192,7 @@ export function useTargetsStore() {
   return ctx
 }
 
-export function listFeaturedFromBanners(banners: Banner[] = BANNERS) {
+export function listFeaturedFromBanners(banners: Banner[]) {
   return banners.map(b => ({ name: b.featured, channel: b.type, banner: b }))
 }
 

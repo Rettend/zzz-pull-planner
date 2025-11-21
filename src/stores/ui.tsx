@@ -11,8 +11,7 @@ interface UIState {
 interface UILocalState {
   plannerInputs: PlannerInputs
   scenario: Scenario
-  phase1Timing: 'start' | 'end'
-  phase2Timing: 'start' | 'end'
+  phaseTimings: Record<number, 'start' | 'end'>
 }
 
 type UIStoreState = UIState & {
@@ -23,8 +22,7 @@ interface UIStoreActions {
   setPlannerInput: <K extends keyof PlannerInputs>(key: K, value: PlannerInputs[K]) => void
   setPlannerInputs: (updates: Partial<PlannerInputs>) => void
   setScenario: (scenario: UILocalState['scenario']) => void
-  setPhase1Timing: (t: 'start' | 'end') => void
-  setPhase2Timing: (t: 'start' | 'end') => void
+  setPhaseTiming: (index: number, t: 'start' | 'end') => void
   resetPlannerInputs: () => void
 }
 
@@ -38,8 +36,7 @@ export function UIStoreProvider(props: ParentProps<{ accountId: string }>) {
   const defaultPlannerInputs: PlannerInputs = {
     N: 60,
     pullsOnHand: 0,
-    incomePhase1: 75,
-    incomePhase2: 75,
+    incomes: [75, 75, 75, 75], // Default to 4 phases
     pityAgentStart: 0,
     guaranteedAgentStart: false,
     pityEngineStart: 0,
@@ -50,8 +47,7 @@ export function UIStoreProvider(props: ParentProps<{ accountId: string }>) {
   const [baseLocal, setBaseLocal] = createStore<UILocalState>({
     plannerInputs: defaultPlannerInputs,
     scenario: 'p60',
-    phase1Timing: 'end',
-    phase2Timing: 'end',
+    phaseTimings: {},
   })
   const storageKey = untrack(() => `ui:${props.accountId}`)
   const [local, setLocal] = makePersisted([baseLocal, setBaseLocal], {
@@ -74,11 +70,8 @@ export function UIStoreProvider(props: ParentProps<{ accountId: string }>) {
     setScenario: (scenario) => {
       setLocal('scenario', scenario)
     },
-    setPhase1Timing: (t) => {
-      setLocal('phase1Timing', t)
-    },
-    setPhase2Timing: (t) => {
-      setLocal('phase2Timing', t)
+    setPhaseTiming: (index, t) => {
+      setLocal('phaseTimings', index, t)
     },
     resetPlannerInputs: () => {
       setLocal('plannerInputs', defaultPlannerInputs)

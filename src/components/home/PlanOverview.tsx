@@ -1,33 +1,31 @@
 import type { Accessor } from 'solid-js'
+import type { Banner } from '~/lib/constants'
 import type { SelectedTargetInput } from '~/lib/plan-view'
 import type { PhasePlan, PlannerInputs, Scenario } from '~/lib/planner'
 import type { TargetAggregate } from '~/stores/targets'
-import { createMemo, createSignal, Show } from 'solid-js'
+import { createMemo, createSignal, For, Show } from 'solid-js'
 import { Badge, BudgetBar, StatRow } from '~/components/ui'
 import { formatPlanCopyText } from '~/lib/clipboard'
 import { buildPhaseRanges, calculateDisplayedCost, channelBreakdownParts, computeFundingSummary, createFundedMindscapes } from '~/lib/plan-view'
+import { formatSlug } from '~/utils'
 import { ChannelCostRow } from './ChannelCostRow'
 import { PhaseHeader } from './PhaseHeader'
 
-const PHASE_RANGES = buildPhaseRanges()
-
 interface PlanOverviewProps {
+  banners: Accessor<Banner[]>
   plan: Accessor<PhasePlan>
   inputs: Accessor<PlannerInputs>
   scenario: Accessor<Scenario>
   selectedTargets: Accessor<SelectedTargetInput[]>
   groupedTargets: Accessor<TargetAggregate[]>
-  phase1Timing: Accessor<'start' | 'end'>
-  phase2Timing: Accessor<'start' | 'end'>
-  onPhase1TimingChange: (value: 'start' | 'end') => void
-  onPhase2TimingChange: (value: 'start' | 'end') => void
+  phaseTimings: Accessor<Record<number, 'start' | 'end'>>
+  onPhaseTimingChange: (index: number, value: 'start' | 'end') => void
 }
 
 export function PlanOverview(props: PlanOverviewProps) {
   const [copied, setCopied] = createSignal(false)
 
-  const phase1 = createMemo(() => props.plan().phase1)
-  const phase2 = createMemo(() => props.plan().phase2)
+  const phaseRanges = createMemo(() => buildPhaseRanges(props.banners()))
   const totals = createMemo(() => props.plan().totals)
 
   const fundedMindscapes = createMemo(() => createFundedMindscapes(props.plan()))
@@ -51,36 +49,29 @@ export function PlanOverview(props: PlanOverviewProps) {
   })
 
   const commonParams = createMemo(() => ({
+    banners: props.banners(),
     plan: props.plan(),
     scenario: props.scenario(),
     inputs: props.inputs(),
     selectedTargets: props.selectedTargets(),
-    ranges: PHASE_RANGES,
+    ranges: phaseRanges(),
   }))
 
   const displayedCosts = createMemo(() => {
     const common = commonParams()
-    return {
-      phase1: {
-        agent: calculateDisplayedCost({ ...common, phase: 1, channel: 'agent' }),
-        engine: calculateDisplayedCost({ ...common, phase: 1, channel: 'engine' }),
-      },
-      phase2: {
-        agent: calculateDisplayedCost({ ...common, phase: 2, channel: 'agent' }),
-        engine: calculateDisplayedCost({ ...common, phase: 2, channel: 'engine' }),
-      },
-    }
+    return props.plan().phases.map((p, i) => ({
+      agent: calculateDisplayedCost({ ...common, phase: i, channel: 'agent' }),
+      engine: calculateDisplayedCost({ ...common, phase: i, channel: 'engine' }),
+    }))
   })
 
   const breakdowns = createMemo(() => {
     const common = commonParams()
     const costs = displayedCosts()
-    return {
-      phase1Agent: channelBreakdownParts({ ...common, phase: 1, channel: 'agent', displayedTotal: costs.phase1.agent }),
-      phase1Engine: channelBreakdownParts({ ...common, phase: 1, channel: 'engine', displayedTotal: costs.phase1.engine }),
-      phase2Agent: channelBreakdownParts({ ...common, phase: 2, channel: 'agent', displayedTotal: costs.phase2.agent }),
-      phase2Engine: channelBreakdownParts({ ...common, phase: 2, channel: 'engine', displayedTotal: costs.phase2.engine }),
-    }
+    return props.plan().phases.map((p, i) => ({
+      agent: channelBreakdownParts({ ...common, phase: i, channel: 'agent', displayedTotal: costs[i].agent }),
+      engine: channelBreakdownParts({ ...common, phase: i, channel: 'engine', displayedTotal: costs[i].engine }),
+    }))
   })
 
   const missedTargets = createMemo(() => [...agentFunding().missed, ...engineFunding().missed])
@@ -98,9 +89,6 @@ export function PlanOverview(props: PlanOverviewProps) {
     }
   }
 
-  const phase1Success = () => (props.phase1Timing() === 'start' ? (phase1().successProbStart ?? 0) : (phase1().successProbEnd ?? 0))
-  const phase2Success = () => (props.phase2Timing() === 'start' ? (phase2().successProbStart ?? 0) : (phase2().successProbEnd ?? 0))
-
   return (
     <section class="p-4 border border-zinc-700 rounded-xl bg-zinc-800/50 space-y-4">
       <h2 class="text-lg text-emerald-300 tracking-wide font-bold">Plan</h2>
@@ -115,14 +103,14 @@ export function PlanOverview(props: PlanOverviewProps) {
             <Badge
               ok={props.plan().totals.agentsGot >= selectedCounts().agents}
               label={`${props.plan().totals.agentsGot} Agents`}
-              title="How many Agents from your selection are affordable across both phases"
+              title="How many Agents from your selection are affordable across all phases"
             />
             <Badge
               ok={props.plan().totals.enginesGot >= selectedCounts().engines}
               label={`${props.plan().totals.enginesGot} Engines`}
-              title="How many W-Engines from your selection are affordable across both phases"
+              title="How many W-Engines from your selection are affordable across all phases"
             />
-            <Badge label={`${Math.round(props.plan().totals.pullsLeftEnd)} left`} title="Estimated pulls remaining at the end of Phase 2" />
+            <Badge label={`${Math.round(props.plan().totals.pullsLeftEnd)} left`} title="Estimated pulls remaining at the end of the plan" />
             <button
               class="px-3 py-1.5 border border-zinc-700 rounded-md bg-zinc-900 inline-flex gap-2 items-center hover:bg-zinc-800"
               onClick={onCopy}
@@ -134,95 +122,77 @@ export function PlanOverview(props: PlanOverviewProps) {
           </div>
         </div>
 
-        <div class="p-3 border border-zinc-700 rounded-lg bg-zinc-900/40 space-y-3">
-          <PhaseHeader
-            title="Phase 1"
-            budget={Math.round(props.phase1Timing() === 'start' ? phase1().startBudget : phase1().endBudget)}
-            success={phase1Success()}
-            timing={props.phase1Timing()}
-            onTimingChange={props.onPhase1TimingChange}
-          />
+        <For each={props.plan().phases}>
+          {(phase, index) => {
+            const timing = createMemo(() => props.phaseTimings()[index()] ?? 'end')
+            const isStart = createMemo(() => timing() === 'start')
+            const budget = createMemo(() => Math.round(isStart() ? phase.startBudget : phase.endBudget))
+            const success = createMemo(() => (isStart() ? (phase.successProbStart ?? 0) : (phase.successProbEnd ?? 0)))
 
-          <BudgetBar
-            total={props.phase1Timing() === 'start' ? phase1().startBudget : phase1().endBudget}
-            segments={[
-              { value: phase1().agentCost, color: 'bg-emerald-600/70', label: 'Agents', title: 'Phase 1 Agents cost' },
-              { value: props.phase1Timing() === 'start' ? phase1().engineSpendStart : phase1().engineSpendEnd, color: 'bg-sky-600/70', label: 'Engines', title: 'Phase 1 Engines spend this phase' },
-              { value: props.phase1Timing() === 'start' ? phase1().carryToPhase2Start : phase1().carryToPhase2End, color: 'bg-zinc-700', label: 'Carry', title: 'Pulls carried to Phase 2' },
-            ]}
-          />
+            const costs = createMemo(() => displayedCosts()[index()])
+            const breakdown = createMemo(() => breakdowns()[index()])
 
-          <ul class="gap-x-3 gap-y-1 grid" style={{ 'grid-template-columns': '12rem 2rem 8rem auto' }}>
-            <ChannelCostRow
-              label="Agents cost"
-              value={displayedCosts().phase1.agent}
-              affordable={props.phase1Timing() === 'start' ? phase1().canAffordAgentStart : phase1().canAffordAgentEnd}
-              pityLabel={`-${Math.max(0, props.inputs().pityAgentStart)}`}
-              explanation={breakdowns().phase1Agent}
-              title="Aggregated cost to secure Phase 1 selected Agents"
-            />
-            <ChannelCostRow
-              label="Engines cost"
-              value={displayedCosts().phase1.engine}
-              affordable={props.phase1Timing() === 'start' ? phase1().canAffordEngineStart : phase1().canAffordEngineEnd}
-              pityLabel={`-${Math.max(0, props.inputs().pityEngineStart)}`}
-              explanation={breakdowns().phase1Engine}
-              title="Aggregated cost to secure Phase 1 selected Engines"
-            />
-            <StatRow
-              label="Reserve for Phase 2"
-              value={<span class="text-amber-300">{Math.round(phase1().reserveForPhase2)}</span>}
-              title="Minimum pulls to keep reserved at end of Phase 1 for Phase 2 targets"
-            />
-            <StatRow
-              label="Carry to Phase 2"
-              value={props.phase1Timing() === 'start' ? phase1().carryToPhase2Start : phase1().carryToPhase2End}
-              badge={{
-                ok: (props.phase1Timing() === 'start' ? phase1().carryToPhase2Start : phase1().carryToPhase2End) >= phase1().reserveForPhase2,
-                label: (props.phase1Timing() === 'start' ? phase1().carryToPhase2Start : phase1().carryToPhase2End) >= phase1().reserveForPhase2 ? 'meets reserve' : 'below reserve',
-              }}
-              title="Estimated pulls remaining after Phase 1"
-            />
-          </ul>
-        </div>
+            const range = phase.id
+            const title = createMemo(() => {
+              const banner = props.banners().find(b => `${b.start}→${b.end}` === range)
+              return banner ? (banner.title || `Phase ${index() + 1}`) : `Phase ${index() + 1}`
+            })
 
-        <div class="p-3 border border-zinc-700 rounded-lg bg-zinc-900/40 space-y-3">
-          <PhaseHeader
-            title="Phase 2"
-            budget={Math.round(props.phase2Timing() === 'start' ? phase2().startBudget : phase2().endBudget)}
-            success={phase2Success()}
-            timing={props.phase2Timing()}
-            onTimingChange={props.onPhase2TimingChange}
-          />
+            return (
+              <div class="p-3 border border-zinc-700 rounded-lg bg-zinc-900/40 space-y-3">
+                <PhaseHeader
+                  title={title()}
+                  budget={budget()}
+                  success={success()}
+                  timing={timing()}
+                  onTimingChange={t => props.onPhaseTimingChange(index(), t)}
+                />
 
-          <BudgetBar
-            total={props.phase2Timing() === 'start' ? phase2().startBudget : phase2().endBudget}
-            segments={[
-              { value: phase2().agentCost, color: 'bg-emerald-600/70', label: 'Agents', title: 'Phase 2 Agents cost' },
-              { value: phase2().engineCost, color: 'bg-sky-600/70', label: 'Engines', title: 'Phase 2 Engines cost' },
-              { value: Math.max(0, (props.phase2Timing() === 'start' ? phase2().startBudget : phase2().endBudget) - phase2().agentCost - phase2().engineCost), color: 'bg-zinc-700', label: 'Left', title: 'Estimated pulls left after Phase 2' },
-            ]}
-          />
+                <BudgetBar
+                  total={isStart() ? phase.startBudget : phase.endBudget}
+                  segments={[
+                    { value: phase.agentCost, color: 'bg-emerald-600/70', label: 'Agents', title: 'Agents cost' },
+                    { value: isStart() ? phase.engineSpendStart : phase.engineSpendEnd, color: 'bg-sky-600/70', label: 'Engines', title: 'Engines spend this phase' },
+                    { value: isStart() ? phase.carryToNextPhaseStart : phase.carryToNextPhaseEnd, color: 'bg-zinc-700', label: 'Carry', title: 'Pulls carried to next phase' },
+                  ]}
+                />
 
-          <ul class="gap-x-3 gap-y-1 grid" style={{ 'grid-template-columns': '12rem 2rem 8rem auto' }}>
-            <ChannelCostRow
-              label="Agents cost"
-              value={displayedCosts().phase2.agent}
-              affordable={props.phase2Timing() === 'start' ? phase2().canAffordAgentStart : phase2().canAffordAgent}
-              pityLabel={`-${Math.max(0, phase2().agentPityStart ?? 0)}`}
-              explanation={breakdowns().phase2Agent}
-              title="Aggregated cost to secure Phase 2 selected Agents"
-            />
-            <ChannelCostRow
-              label="Engines cost"
-              value={displayedCosts().phase2.engine}
-              affordable={props.phase2Timing() === 'start' ? phase2().canAffordEngineAfterAgentStart : phase2().canAffordEngineAfterAgent}
-              pityLabel={`-${Math.max(0, phase2().enginePityStart)}`}
-              explanation={breakdowns().phase2Engine}
-              title="Aggregated cost to secure Phase 2 selected Engines"
-            />
-          </ul>
-        </div>
+                <ul class="gap-x-3 gap-y-1 grid" style={{ 'grid-template-columns': '12rem 2rem 8rem auto' }}>
+                  <ChannelCostRow
+                    label="Agents cost"
+                    value={costs()?.agent ?? 0}
+                    affordable={isStart() ? phase.canAffordAgentStart : phase.canAffordAgentEnd}
+                    pityLabel={index() === 0 ? `-${Math.max(0, props.inputs().pityAgentStart)}` : ''}
+                    explanation={breakdown()?.agent ?? null}
+                    title="Aggregated cost to secure selected Agents"
+                  />
+                  <ChannelCostRow
+                    label="Engines cost"
+                    value={costs()?.engine ?? 0}
+                    affordable={isStart() ? phase.canAffordEngineStart : phase.canAffordEngineEnd}
+                    pityLabel={index() === 0 ? `-${Math.max(0, props.inputs().pityEngineStart)}` : ''}
+                    explanation={breakdown()?.engine ?? null}
+                    title="Aggregated cost to secure selected Engines"
+                  />
+                  <StatRow
+                    label="Reserve for Next"
+                    value={<span class="text-amber-300">{Math.round(phase.reserveForNextPhase)}</span>}
+                    title="Minimum pulls to keep reserved at end of this phase for future targets"
+                  />
+                  <StatRow
+                    label="Carry to Next"
+                    value={isStart() ? phase.carryToNextPhaseStart : phase.carryToNextPhaseEnd}
+                    badge={{
+                      ok: (isStart() ? phase.carryToNextPhaseStart : phase.carryToNextPhaseEnd) >= phase.reserveForNextPhase,
+                      label: (isStart() ? phase.carryToNextPhaseStart : phase.carryToNextPhaseEnd) >= phase.reserveForNextPhase ? 'meets reserve' : 'below reserve',
+                    }}
+                    title="Estimated pulls remaining after this phase"
+                  />
+                </ul>
+              </div>
+            )
+          }}
+        </For>
 
         <div class="p-3 border border-zinc-700 rounded-lg bg-zinc-900/40 space-y-2">
           <div class="text-emerald-200 font-semibold">What this means</div>
@@ -242,43 +212,44 @@ export function PlanOverview(props: PlanOverviewProps) {
               <li>
                 Funded Agents:
                 {' '}
-                <span class="text-emerald-300">{agentFunding().funded.join(', ')}</span>
+                <span class="text-emerald-300">{agentFunding().funded.map(formatSlug).join(', ')}</span>
               </li>
             </Show>
             <Show when={engineFunding().funded.length}>
               <li>
                 Funded W-Engines:
                 {' '}
-                <span class="text-emerald-300">{engineFunding().funded.join(', ')}</span>
+                <span class="text-emerald-300">{engineFunding().funded.map(formatSlug).join(', ')}</span>
               </li>
             </Show>
             <Show when={missedTargets().length}>
               <li>
                 Not funded yet:
                 {' '}
-                <span class="text-red-300">{missedTargets().join(', ')}</span>
+                <span class="text-red-300">{missedTargets().map(formatSlug).join(', ')}</span>
               </li>
             </Show>
-            <Show when={phase1().shortfallEnd && (phase1().shortfallEnd ?? 0) > 0}>
-              <li>
-                You would need
-                {' '}
-                <span class="text-red-300">{Math.round(phase1().shortfallEnd ?? 0)}</span>
-                {' '}
-                more pulls at the end of Phase 1 to fund all Phase 1 selections.
-              </li>
-            </Show>
-            <Show when={phase2().shortfallEnd && (phase2().shortfallEnd ?? 0) > 0}>
-              <li>
-                You would need
-                {' '}
-                <span class="text-red-300">{Math.round(phase2().shortfallEnd ?? 0)}</span>
-                {' '}
-                more pulls at the end of Phase 2 to get everything.
-              </li>
-            </Show>
+
+            <For each={props.plan().phases}>
+              {(phase, index) => (
+                <Show when={phase.shortfallEnd && (phase.shortfallEnd ?? 0) > 0}>
+                  <li>
+                    You would need
+                    {' '}
+                    <span class="text-red-300">{Math.round(phase.shortfallEnd ?? 0)}</span>
+                    {' '}
+                    more pulls at the end of Phase
+                    {' '}
+                    {index() + 1}
+                    {' '}
+                    to fund all selections up to that point.
+                  </li>
+                </Show>
+              )}
+            </For>
+
             <li>
-              End of Phase 2 you have
+              End of plan you have
               {' '}
               <span class="text-emerald-300">{Math.round(totals().pullsLeftEnd)}</span>
               {' '}

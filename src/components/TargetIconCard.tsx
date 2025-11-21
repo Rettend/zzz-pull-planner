@@ -1,6 +1,7 @@
 import type { Component } from 'solid-js'
 import { createMemo, Show } from 'solid-js'
-import { RANK_S_ICON, resolveAgent, resolveAttributeIcon, resolveSpecialtyIcon, resolveWEngine } from '~/lib/constants'
+import { RANK_S_ICON, resolveAttributeIcon } from '~/lib/constants'
+import { useGame } from '~/stores/game'
 
 const CARD_WIDTH = 100 // px
 const MINDSCAPE_PANEL_WIDTH = 30 // px
@@ -20,13 +21,14 @@ export const TargetIconCard: Component<{
   channel?: 'agent' | 'engine'
   showMindscapeControls?: boolean
 }> = (props) => {
-  const agent = createMemo(() => resolveAgent(props.name))
-  const wengine = createMemo(() => resolveWEngine(props.name))
+  const game = useGame()
+  const agent = createMemo(() => game.resolveAgent(props.name))
+  const wengine = createMemo(() => game.resolveWEngine(props.name))
   const isAgent = createMemo(() => Boolean(agent()))
 
   const bg = createMemo(() => agent()?.icon ?? wengine()?.icon)
   const attrIcon = createMemo(() => agent() ? resolveAttributeIcon(agent()!.attribute) : undefined)
-  const specIcon = createMemo(() => resolveSpecialtyIcon((agent() ?? wengine())?.specialty))
+  const specIcon = createMemo(() => game.resolveSpecialtyIcon((agent() ?? wengine())?.specialty))
   const borderClass = createMemo(() => {
     if (props.context === 'selector' && props.selected) {
       return props.notMet ? 'border-red-500' : 'border-emerald-500'
@@ -103,7 +105,7 @@ export const TargetIconCard: Component<{
       {/* Remove button */}
       <Show when={props.removable}>
         <button
-          class="p-1 border border-zinc-700 rounded-full bg-zinc-900/90 opacity-0 flex size-8 shadow transition-opacity items-center justify-center absolute hover:border-red-500 hover:bg-red-600/80 group-hover:opacity-100 -right-2 -top-2"
+          class="p-1 border border-zinc-700 rounded-full bg-zinc-900/90 opacity-90 flex size-8 shadow transition-opacity items-center justify-center absolute hover:border-red-500 hover:bg-red-600/80 hover:opacity-100 -right-2 -top-2"
           aria-label="Remove"
           onClick={(e) => {
             e.stopPropagation()

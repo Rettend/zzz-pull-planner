@@ -1,9 +1,10 @@
 import type { Component } from 'solid-js'
-import type { ChannelType } from '~/lib/constants'
+import type { Banner, ChannelType } from '~/lib/constants'
 import type { TargetAggregate } from '~/stores/targets'
 import { createMemo, createSignal, For, Show } from 'solid-js'
-import { BANNERS, isBannerPast } from '~/lib/constants'
-import { computeTwoPhasePlan, emptyPlan } from '~/lib/planner'
+import { isBannerPast } from '~/lib/constants'
+import { computePlan, emptyPlan } from '~/lib/planner'
+import { useGame } from '~/stores/game'
 import { aggregateTargets, useTargetsStore } from '~/stores/targets'
 import { useUIStore } from '~/stores/ui'
 import { TargetIconCard } from './TargetIconCard'
@@ -11,11 +12,23 @@ import { TargetIconCard } from './TargetIconCard'
 export const TargetPicker: Component = () => {
   const [targets, actions] = useTargetsStore()
   const [ui] = useUIStore()
+  const game = useGame()
 
-  const inputs = () => ui.local.plannerInputs
-  const scenario = () => ui.local.scenario
+  const inputs = createMemo(() => ui.local.plannerInputs)
+  const scenario = createMemo(() => ui.local.scenario)
 
-  const ranges = createMemo(() => [...new Set(BANNERS.filter(b => !isBannerPast(b)).map(b => `${b.start} → ${b.end}`))])
+  const activeBanners = createMemo(() => game.banners().filter(b => !isBannerPast(b)))
+  const ranges = createMemo(() => [...new Set(activeBanners().map(b => `${b.start} → ${b.end}`))])
+  const bannersByRange = createMemo(() => {
+    const map = new Map<string, Banner[]>()
+    for (const b of activeBanners()) {
+      const range = `${b.start} → ${b.end}`
+      const list = map.get(range) ?? []
+      list.push(b)
+      map.set(range, list)
+    }
+    return map
+  })
   const selectedEntries = createMemo(() => [...targets.selected].sort((a, b) => a.priority - b.priority))
   const aggregatedSelected = createMemo(() => aggregateTargets(selectedEntries()))
   const aggregatedMap = createMemo(() => {
@@ -27,7 +40,7 @@ export const TargetPicker: Component = () => {
   const selectedTargetsInput = createMemo(() => selectedEntries().map(t => ({ name: t.name, channel: t.channel })))
   const plan = createMemo(() => {
     try {
-      return computeTwoPhasePlan(inputs(), scenario(), selectedTargetsInput())
+      return computePlan(activeBanners(), inputs(), scenario(), selectedTargetsInput())
     }
     catch {
       return emptyPlan()
@@ -183,7 +196,7 @@ export const TargetPicker: Component = () => {
             <div class="space-y-2">
               <div class="text-sm text-emerald-200 font-semibold">{range}</div>
               <div class="gap-3 grid grid-cols-2 lg:grid-cols-3 md:grid-cols-4 xl:grid-cols-4">
-                <For each={BANNERS.filter(b => !isBannerPast(b) && `${b.start} → ${b.end}` === range)}>
+                <For each={bannersByRange().get(range)}>
                   {(b) => {
                     const target = () => findAggregate(b.featured)
                     return (
@@ -250,7 +263,7 @@ export const TargetPicker: Component = () => {
                   </Show>
 
                   <div
-                    class="relative"
+                    class="group relative"
                     draggable
                     onDragStart={e => onDragStart(e, i())}
                     onDragEnd={onDragEnd}
@@ -269,7 +282,7 @@ export const TargetPicker: Component = () => {
                       </div>
                     </div>
                     <button
-                      class="p-1 border border-zinc-700 rounded-full bg-zinc-900/90 opacity-0 flex size-8 shadow transition-opacity items-center justify-center absolute hover:border-red-500 hover:bg-red-600/80 group-hover:opacity-100 -right-2 -top-2"
+                      class="p-1 border border-zinc-700 rounded-full bg-zinc-900/90 opacity-0 flex size-8 shadow transition-all items-center justify-center absolute hover:border-red-500 hover:bg-red-600/80 group-hover:opacity-100 -right-2 -top-2"
                       aria-label="Remove mindscape"
                       onClick={(e) => {
                         e.stopPropagation()
