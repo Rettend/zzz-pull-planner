@@ -2,6 +2,7 @@ import type { Accessor } from 'solid-js'
 import type { SelectedTargetInput } from '~/lib/plan-view'
 import type { PlannerInputs } from '~/lib/planner'
 import { Show } from 'solid-js'
+import { formatSlug } from '~/utils'
 
 interface PullSimulationPanelProps {
   inputs: Accessor<PlannerInputs>
@@ -49,7 +50,7 @@ export function PullSimulationPanel(props: PullSimulationPanelProps) {
             <span>
               Next up:
               {' '}
-              {target().name}
+              {formatSlug(target().name)}
               {' '}
               (
               {target().channel === 'agent' ? 'Agent' : 'W-Engine'}

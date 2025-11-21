@@ -1,4 +1,5 @@
 import type { PhasePlan, PlannerInputs, Scenario } from '~/lib/planner'
+import { formatSlug } from '~/utils'
 import { computeChannelBreakdown, roundToTarget } from '~/utils/plan'
 
 function formatNumber(n: number): string {
@@ -23,11 +24,11 @@ export function formatPlanCopyText(
   lines.push('')
   lines.push('Inputs:')
   lines.push(`- Pulls on hand (P0): ${formatNumber(inputs.pullsOnHand)}`)
-  
+
   inputs.incomes.forEach((inc, idx) => {
     lines.push(`- Income Phase ${idx + 1} (I${idx + 1}): ${formatNumber(inc)}`)
   })
-  
+
   lines.push(`- Agent pity (pA): ${formatNumber(inputs.pityAgentStart)}${inputs.guaranteedAgentStart ? ' (guaranteed)' : ''}`)
   lines.push(`- W-Engine pity (pW): ${formatNumber(inputs.pityEngineStart)}${inputs.guaranteedEngineStart ? ' (guaranteed)' : ''}`)
   lines.push('')
@@ -37,19 +38,19 @@ export function formatPlanCopyText(
   }
   else {
     selectedTargets.forEach((t, idx) => {
-      lines.push(`${idx + 1}. ${t.name} [${t.channel === 'agent' ? 'Agent' : 'W-Engine'}]`)
+      lines.push(`${idx + 1}. ${formatSlug(t.name)} [${t.channel === 'agent' ? 'Agent' : 'W-Engine'}]`)
     })
   }
   lines.push('')
   lines.push('Plan:')
-  
+
   plan.phases.forEach((phase, idx) => {
     lines.push(`Phase ${idx + 1}:`)
     lines.push(`- Budget start: ${formatNumber(phase.startBudget)}`)
     lines.push(`- Budget end: ${formatNumber(phase.endBudget)}`)
     lines.push(`- Success probability (start): ${Math.round((phase.successProbStart ?? 0) * 100)}%`)
     lines.push(`- Success probability (end): ${Math.round((phase.successProbEnd ?? 0) * 100)}%`)
-    
+
     lines.push(`- Agents cost: ${formatNumber(phase.agentCost)} (${phase.canAffordAgentStart ? 'affordable at start' : 'not met at start'} / ${phase.canAffordAgentEnd ? 'affordable at end' : 'not met at end'})`)
     {
       const br = computeChannelBreakdown(idx, 'agent', plan, scenario, inputs)
@@ -62,7 +63,7 @@ export function formatPlanCopyText(
         lines.push(`  = ${eq}${disp === 0 ? ' (not funded)' : ''}`)
       }
     }
-    
+
     lines.push(`- Engines cost: ${formatNumber(phase.engineCost)} (${phase.canAffordEngineStart ? 'affordable at start' : 'not met at start'} / ${phase.canAffordEngineEnd ? 'affordable at end' : 'not met at end'})`)
     {
       const br = computeChannelBreakdown(idx, 'engine', plan, scenario, inputs)
@@ -75,7 +76,7 @@ export function formatPlanCopyText(
         lines.push(`  = ${eq}${disp === 0 ? ' (not funded)' : ''}`)
       }
     }
-    
+
     lines.push(`- Engines spend (start): ${formatNumber(phase.engineSpendStart)}`)
     lines.push(`- Engines spend (end): ${formatNumber(phase.engineSpendEnd)}`)
     lines.push(`- Reserve for Next: ${formatNumber(phase.reserveForNextPhase)}`)
@@ -84,10 +85,10 @@ export function formatPlanCopyText(
     lines.push('')
   })
 
-  const fundedAgentsList = selectedTargets.filter(t => t.channel === 'agent' && plan.fundedTargets.includes(t.name)).map(t => t.name)
-  const fundedEnginesList = selectedTargets.filter(t => t.channel === 'engine' && plan.fundedTargets.includes(t.name)).map(t => t.name)
-  const missed = selectedTargets.filter(t => !plan.fundedTargets.includes(t.name)).map(t => t.name)
-  
+  const fundedAgentsList = selectedTargets.filter(t => t.channel === 'agent' && plan.fundedTargets.includes(t.name)).map(t => formatSlug(t.name))
+  const fundedEnginesList = selectedTargets.filter(t => t.channel === 'engine' && plan.fundedTargets.includes(t.name)).map(t => formatSlug(t.name))
+  const missed = selectedTargets.filter(t => !plan.fundedTargets.includes(t.name)).map(t => formatSlug(t.name))
+
   lines.push('Totals:')
   lines.push(`- Agents: ${formatNumber(plan.totals.agentsGot)} of ${selectedTargets.filter(t => t.channel === 'agent').length}`)
   lines.push(`- W-Engines: ${formatNumber(plan.totals.enginesGot)} of ${selectedTargets.filter(t => t.channel === 'engine').length}`)
@@ -98,7 +99,7 @@ export function formatPlanCopyText(
     lines.push(`- Funded W-Engines: ${fundedEnginesList.join(', ')}`)
   if (missed.length)
     lines.push(`- Not funded yet: ${missed.join(', ')}`)
-    
+
   plan.phases.forEach((phase, idx) => {
     if ((phase.shortfallEnd ?? 0) > 0) {
       lines.push(`- You would need ${formatNumber(phase.shortfallEnd ?? 0)} more pulls at the end of Phase ${idx + 1} to fund all selections up to that point.`)

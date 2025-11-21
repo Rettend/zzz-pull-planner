@@ -7,6 +7,7 @@ import { createMemo, createSignal, For, Show } from 'solid-js'
 import { Badge, BudgetBar, StatRow } from '~/components/ui'
 import { formatPlanCopyText } from '~/lib/clipboard'
 import { buildPhaseRanges, calculateDisplayedCost, channelBreakdownParts, computeFundingSummary, createFundedMindscapes } from '~/lib/plan-view'
+import { formatSlug } from '~/utils'
 import { ChannelCostRow } from './ChannelCostRow'
 import { PhaseHeader } from './PhaseHeader'
 
@@ -211,21 +212,21 @@ export function PlanOverview(props: PlanOverviewProps) {
               <li>
                 Funded Agents:
                 {' '}
-                <span class="text-emerald-300">{agentFunding().funded.join(', ')}</span>
+                <span class="text-emerald-300">{agentFunding().funded.map(formatSlug).join(', ')}</span>
               </li>
             </Show>
             <Show when={engineFunding().funded.length}>
               <li>
                 Funded W-Engines:
                 {' '}
-                <span class="text-emerald-300">{engineFunding().funded.join(', ')}</span>
+                <span class="text-emerald-300">{engineFunding().funded.map(formatSlug).join(', ')}</span>
               </li>
             </Show>
             <Show when={missedTargets().length}>
               <li>
                 Not funded yet:
                 {' '}
-                <span class="text-red-300">{missedTargets().join(', ')}</span>
+                <span class="text-red-300">{missedTargets().map(formatSlug).join(', ')}</span>
               </li>
             </Show>
 
