@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { exec } from 'node:child_process'
 import { unlink } from 'node:fs/promises'
 import process from 'node:process'
