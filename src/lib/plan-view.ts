@@ -4,7 +4,7 @@ import type { TargetAggregate } from '~/stores/targets'
 import type { BreakdownPart } from '~/utils/plan'
 import { computeChannelBreakdown, roundToTarget } from '~/utils/plan'
 
-export type PhaseIndex = 1 | 2
+export type PhaseIndex = number
 
 export interface SelectedTargetInput {
   name: string
@@ -32,9 +32,9 @@ export function buildPhaseRanges(banners: Banner[]): string[] {
 export function phaseOfName(banners: Banner[], name: string, ranges: string[]): PhaseIndex {
   const banner = banners.find(x => x.featured === name)
   if (!banner)
-    return 1
+    return 0 // Default to first phase if not found
   const idx = ranges.indexOf(rangeKey(banner))
-  return idx <= 0 ? 1 : 2
+  return idx < 0 ? 0 : idx
 }
 
 export function namesForPhaseChannel(
@@ -124,9 +124,10 @@ export function computeFundingSummary(params: {
 }
 
 export function planCost(plan: PhasePlan, phase: PhaseIndex, channel: ChannelType): number {
-  if (phase === 1)
-    return channel === 'agent' ? plan.phase1.agentCost : plan.phase1.engineCost
-  return channel === 'agent' ? plan.phase2.agentCost : plan.phase2.engineCost
+  const p = plan.phases[phase]
+  if (!p)
+    return 0
+  return channel === 'agent' ? p.agentCost : p.engineCost
 }
 
 export function calculateDisplayedCost(params: {

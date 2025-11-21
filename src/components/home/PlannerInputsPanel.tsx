@@ -1,13 +1,20 @@
-import { For } from 'solid-js'
+import { createMemo, For } from 'solid-js'
 import { boolInput, CheckboxField, NumberField, numberInput } from '~/components/ui'
+import { isBannerPast } from '~/lib/constants'
 import { describeLuckMode, describeScenario } from '~/lib/plan-view'
+import { computePhaseRanges } from '~/lib/planner'
+import { useGame } from '~/stores/game'
 import { useUIStore } from '~/stores/ui'
 
 export function PlannerInputsPanel() {
   const [ui, actions] = useUIStore()
+  const game = useGame()
   const inputs = () => ui.local.plannerInputs
   const scenario = () => ui.local.scenario
   const luckMode = () => ui.local.plannerInputs.luckMode ?? 'realistic'
+
+  const activeBanners = createMemo(() => game.banners().filter(b => !isBannerPast(b)))
+  const ranges = createMemo(() => computePhaseRanges(activeBanners()))
 
   return (
     <section class="p-4 border border-zinc-700 rounded-xl bg-zinc-800/50 space-y-4">
@@ -16,8 +23,23 @@ export function PlannerInputsPanel() {
         <NumberField label="Pulls on hand P0" {...numberInput(inputs, actions.setPlannerInput, 'pullsOnHand')} />
         <span />
 
-        <NumberField label="Income Phase 1 (I1)" {...numberInput(inputs, actions.setPlannerInput, 'incomePhase1')} />
-        <NumberField label="Income Phase 2 (I2)" {...numberInput(inputs, actions.setPlannerInput, 'incomePhase2')} />
+        <For each={ranges()}>
+          {(_, index) => (
+            <NumberField
+              label={`Income Phase ${index() + 1}`}
+              value={String(inputs().incomes?.[index()] ?? 0)}
+              onInput={(e) => {
+                const v = Number(e.currentTarget.value)
+                const newIncomes = [...(inputs().incomes || [])]
+                while (newIncomes.length <= index()) newIncomes.push(0)
+                newIncomes[index()] = Number.isNaN(v) ? 0 : v
+                actions.setPlannerInput('incomes', newIncomes)
+              }}
+            />
+          )}
+        </For>
+
+        <div class="my-2 bg-zinc-700/50 col-span-2 h-px" />
 
         <NumberField label="Agent pity (pA)" {...numberInput(inputs, actions.setPlannerInput, 'pityAgentStart')} />
         <CheckboxField label="Agent guaranteed" {...boolInput(inputs, actions.setPlannerInput, 'guaranteedAgentStart')} />
@@ -26,7 +48,9 @@ export function PlannerInputsPanel() {
         <CheckboxField label="W-Engine guaranteed" {...boolInput(inputs, actions.setPlannerInput, 'guaranteedEngineStart')} />
       </div>
 
-      <div class="text-sm mt-10 space-y-3">
+      <div class="my-2 bg-zinc-700/50 col-span-2 h-px" />
+
+      <div class="text-sm mt-6 space-y-3">
         <div class="flex flex-wrap gap-2 items-center">
           <For each={['p50', 'p60', 'p75', 'p90', 'ev'] as const}>
             {value => (

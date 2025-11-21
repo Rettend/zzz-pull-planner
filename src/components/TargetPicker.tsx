@@ -3,7 +3,7 @@ import type { ChannelType } from '~/lib/constants'
 import type { TargetAggregate } from '~/stores/targets'
 import { createMemo, createSignal, For, Show } from 'solid-js'
 import { isBannerPast } from '~/lib/constants'
-import { computeTwoPhasePlan, emptyPlan } from '~/lib/planner'
+import { computePlan, emptyPlan } from '~/lib/planner'
 import { useGame } from '~/stores/game'
 import { aggregateTargets, useTargetsStore } from '~/stores/targets'
 import { useUIStore } from '~/stores/ui'
@@ -17,7 +17,8 @@ export const TargetPicker: Component = () => {
   const inputs = () => ui.local.plannerInputs
   const scenario = () => ui.local.scenario
 
-  const ranges = createMemo(() => [...new Set(game.banners().filter(b => !isBannerPast(b)).map(b => `${b.start} → ${b.end}`))])
+  const activeBanners = createMemo(() => game.banners().filter(b => !isBannerPast(b)))
+  const ranges = createMemo(() => [...new Set(activeBanners().map(b => `${b.start} → ${b.end}`))])
   const selectedEntries = createMemo(() => [...targets.selected].sort((a, b) => a.priority - b.priority))
   const aggregatedSelected = createMemo(() => aggregateTargets(selectedEntries()))
   const aggregatedMap = createMemo(() => {
@@ -29,7 +30,7 @@ export const TargetPicker: Component = () => {
   const selectedTargetsInput = createMemo(() => selectedEntries().map(t => ({ name: t.name, channel: t.channel })))
   const plan = createMemo(() => {
     try {
-      return computeTwoPhasePlan(game.banners(), inputs(), scenario(), selectedTargetsInput())
+      return computePlan(activeBanners(), inputs(), scenario(), selectedTargetsInput())
     }
     catch {
       return emptyPlan()

@@ -22,7 +22,7 @@ export function getFeaturedProbability(luckMode: PlannerInputs['luckMode'], chan
 }
 
 export function computeChannelBreakdown(
-  phase: 1 | 2,
+  phase: number,
   channel: Channel,
   plan: PhasePlan,
   scenario: Scenario,
@@ -31,17 +31,31 @@ export function computeChannelBreakdown(
 ): ChannelBreakdownResult | null {
   const luckMode = inputs.luckMode ?? 'realistic'
   const q = getFeaturedProbability(luckMode, channel)
-  const names = (targetNames && targetNames.length ? targetNames : (phase === 1 ? plan.fundedTargetsPhase1 : plan.fundedTargetsPhase2))
+
+  const phaseResult = plan.phases[phase]
+  if (!phaseResult)
+    return null
+
+  const names = targetNames ?? phaseResult.boughtNames
   if (names.length === 0)
     return null
 
   const { hazards } = getDefaultHazard(channel)
-  let pity = phase === 1
-    ? (channel === 'agent' ? inputs.pityAgentStart : inputs.pityEngineStart)
-    : (channel === 'agent' ? (plan.phase2.agentPityStart ?? 0) : (plan.phase2.enginePityStart ?? 0))
-  let guaranteed = phase === 1
-    ? (channel === 'agent' ? inputs.guaranteedAgentStart : inputs.guaranteedEngineStart)
-    : (channel === 'agent' ? (plan.phase2.agentGuaranteedStart ?? false) : (plan.phase2.engineGuaranteedStart ?? false))
+
+  let pity = 0
+  let guaranteed = false
+
+  if (phase === 0) {
+    pity = channel === 'agent' ? inputs.pityAgentStart : inputs.pityEngineStart
+    guaranteed = channel === 'agent' ? inputs.guaranteedAgentStart : inputs.guaranteedEngineStart
+  }
+  else {
+    const prevPhase = plan.phases[phase - 1]
+    if (prevPhase) {
+      pity = channel === 'agent' ? prevPhase.agentPityEnd : prevPhase.enginePityEnd
+      guaranteed = channel === 'agent' ? prevPhase.agentGuaranteedEnd : prevPhase.engineGuaranteedEnd
+    }
+  }
 
   const parts: BreakdownPart[] = []
   for (const _ of names) {
