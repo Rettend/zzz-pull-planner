@@ -9,7 +9,7 @@ export interface CostStats {
   probWithin: (budget: number) => number
 }
 
-function generateHazard(cap: number, softStart: number, baseRate: number): number[] {
+function generateHazard(cap: number, softStart: number, baseRate: number, rampRate: number): number[] {
   const hazards: number[] = Array.from({ length: cap }, () => 0)
   // Early region: flat base rate
   for (let k = 1; k <= cap; k++) {
@@ -17,10 +17,10 @@ function generateHazard(cap: number, softStart: number, baseRate: number): numbe
       hazards[k - 1] = baseRate
     }
     else if (k < cap) {
-      // Linear ramp from softStart to cap-1
-      const t = (k - softStart) / Math.max(1, (cap - 1) - softStart)
-      const ramp = baseRate + t * (0.20 - baseRate)
-      hazards[k - 1] = Math.min(0.999999, ramp)
+      // Linear ramp: increases by rampRate each pull starting from softStart
+      const steps = k - softStart + 1
+      const ramp = baseRate + steps * rampRate
+      hazards[k - 1] = Math.min(1, ramp)
     }
     else {
       hazards[k - 1] = 1
@@ -39,15 +39,17 @@ function generateHazard(cap: number, softStart: number, baseRate: number): numbe
 export function getDefaultHazard(channel: ChannelType): { hazards: number[], cap: number } {
   if (channel === 'agent') {
     const cap = 90
-    const softStart = 75
-    const baseRate = 0.006 // ~0.6%
-    return { hazards: generateHazard(cap, softStart, baseRate), cap }
+    const softStart = 74
+    const baseRate = 0.006 // 0.6%
+    const rampRate = 0.060 // +6% per pull
+    return { hazards: generateHazard(cap, softStart, baseRate, rampRate), cap }
   }
   else {
     const cap = 80
-    const softStart = 65
-    const baseRate = 0.010 // ~1.0%
-    return { hazards: generateHazard(cap, softStart, baseRate), cap }
+    const softStart = 64
+    const baseRate = 0.010 // 1.0%
+    const rampRate = 0.060 // +6% per pull (assumed similar to agent)
+    return { hazards: generateHazard(cap, softStart, baseRate, rampRate), cap }
   }
 }
 
