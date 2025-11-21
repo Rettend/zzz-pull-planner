@@ -21,7 +21,13 @@ export default {
     }
   },
 
-  async fetch(_request: Request, _env: any, _ctx: ExecutionContext) {
+  async fetch(request: Request, env: any, _ctx: ExecutionContext) {
+    const url = new URL(request.url)
+    if (url.pathname === '/scrape') {
+      const db = drizzle(env.DB)
+      const result = await scrapeBanners(db, env.ASSETS_BUCKET)
+      return new Response(JSON.stringify(result), { headers: { 'content-type': 'application/json' } })
+    }
     return new Response('Worker is running.')
   },
 }

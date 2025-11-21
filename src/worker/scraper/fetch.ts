@@ -8,7 +8,9 @@ export async function downloadImage(url: string): Promise<ArrayBuffer | null> {
   try {
     const res = await fetch(url, {
       headers: {
-        Accept: 'image/webp,image/png,image/*,*/*',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'image/webp,image/png,image/*,*/*',
+        'Referer': 'https://zenless-zone-zero.fandom.com/',
       },
     })
     if (!res.ok) {
