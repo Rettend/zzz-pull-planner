@@ -1,6 +1,7 @@
 import type { SelectedTargetInput } from '~/lib/plan-view'
 import type { PhasePlan, PlannerInputs } from '~/lib/planner'
 import { batch, createMemo, untrack } from 'solid-js'
+import { ExternalLink } from '~/components/ExternalLink'
 import { AccountsTabs } from '~/components/home/AccountsTabs'
 import { PlannerInputsPanel } from '~/components/home/PlannerInputsPanel'
 import { PlanOverview } from '~/components/home/PlanOverview'
@@ -118,17 +119,32 @@ export default function Home() {
       </div>
       <footer class="text-sm text-zinc-400 mt-12 pt-6 border-t border-zinc-800">
         <div class="mx-auto flex flex-col gap-3 max-w-7xl sm:flex-row sm:items-center sm:justify-between">
-          <span class="text-xs text-zinc-500 tracking-[0.2em] uppercase">ZZZ Pull Planner</span>
-          <a
-            href="https://github.com/Rettend/zzz-pull-planner"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="text-zinc-300 inline-flex gap-2 items-center hover:text-emerald-300"
-            title="View the project on GitHub"
-          >
-            <i class="i-ph:github-logo text-xl" />
-            <span>Source on GitHub</span>
-          </a>
+          <div class="flex flex-col gap-1 sm:flex-row sm:gap-4 sm:items-center">
+            <span class="text-xs text-zinc-500 tracking-[0.2em] uppercase">ZZZ Pull Planner</span>
+            <span class="text-zinc-700 hidden sm:inline">|</span>
+            <ExternalLink
+              href="https://rettend.me"
+              class="text-xs text-zinc-500"
+            >
+              Made by Rettend
+            </ExternalLink>
+          </div>
+          <div class="flex gap-4 items-center">
+            <ExternalLink
+              href="https://discord.gg/FvVaUPhj3t"
+              class="text-zinc-400"
+              title="Join Discord"
+            >
+              <i class="i-ph:discord-logo text-xl" />
+            </ExternalLink>
+            <ExternalLink
+              href="https://github.com/Rettend/zzz-pull-planner"
+              class="text-zinc-400"
+              title="View the project on GitHub"
+            >
+              <i class="i-ph:github-logo text-xl" />
+            </ExternalLink>
+          </div>
         </div>
       </footer>
     </main>
