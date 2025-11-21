@@ -96,13 +96,6 @@ function rangeKey(b: Banner): string {
   return `${b.start}→${b.end}`
 }
 
-function bannerByFeatured(banners: Banner[], name: string): Banner | undefined {
-  const found = banners.find(b => b.featured === name)
-  if (found)
-    return found
-  return undefined
-}
-
 export function computePhaseRanges(banners: Banner[]): string[] {
   const ranges = Array.from(new Set(banners.map(rangeKey)))
   ranges.sort((a, b) => a.localeCompare(b))
@@ -133,11 +126,17 @@ export function computePlan(
 
   const ranges = computePhaseRanges(banners)
 
+  // Create a map for faster lookup
+  const bannerMap = new Map<string, Banner>()
+  for (const b of banners) {
+    bannerMap.set(b.featured, b)
+  }
+
   // Assign targets to phases
   const targetsByPhase: SelectedTargetInput[][] = ranges.map(() => [])
 
   for (const t of selected) {
-    const b = bannerByFeatured(banners, t.name)
+    const b = bannerMap.get(t.name)
     let phaseIdx = 0
     if (b) {
       const idx = ranges.indexOf(rangeKey(b))

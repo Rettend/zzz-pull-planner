@@ -123,19 +123,19 @@ export function PlanOverview(props: PlanOverviewProps) {
 
         <For each={props.plan().phases}>
           {(phase, index) => {
-            const timing = () => props.phaseTimings()[index()] ?? 'end'
-            const isStart = () => timing() === 'start'
-            const budget = () => Math.round(isStart() ? phase.startBudget : phase.endBudget)
-            const success = () => (isStart() ? (phase.successProbStart ?? 0) : (phase.successProbEnd ?? 0))
+            const timing = createMemo(() => props.phaseTimings()[index()] ?? 'end')
+            const isStart = createMemo(() => timing() === 'start')
+            const budget = createMemo(() => Math.round(isStart() ? phase.startBudget : phase.endBudget))
+            const success = createMemo(() => (isStart() ? (phase.successProbStart ?? 0) : (phase.successProbEnd ?? 0)))
 
-            const costs = () => displayedCosts()[index()]
-            const breakdown = () => breakdowns()[index()]
+            const costs = createMemo(() => displayedCosts()[index()])
+            const breakdown = createMemo(() => breakdowns()[index()])
 
             const range = phase.id
-            const title = () => {
+            const title = createMemo(() => {
               const banner = props.banners().find(b => `${b.start}→${b.end}` === range)
               return banner ? (banner.title || `Phase ${index() + 1}`) : `Phase ${index() + 1}`
-            }
+            })
 
             return (
               <div class="p-3 border border-zinc-700 rounded-lg bg-zinc-900/40 space-y-3">

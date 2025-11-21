@@ -1,5 +1,5 @@
 import type { Component } from 'solid-js'
-import type { ChannelType } from '~/lib/constants'
+import type { Banner, ChannelType } from '~/lib/constants'
 import type { TargetAggregate } from '~/stores/targets'
 import { createMemo, createSignal, For, Show } from 'solid-js'
 import { isBannerPast } from '~/lib/constants'
@@ -14,11 +14,21 @@ export const TargetPicker: Component = () => {
   const [ui] = useUIStore()
   const game = useGame()
 
-  const inputs = () => ui.local.plannerInputs
-  const scenario = () => ui.local.scenario
+  const inputs = createMemo(() => ui.local.plannerInputs)
+  const scenario = createMemo(() => ui.local.scenario)
 
   const activeBanners = createMemo(() => game.banners().filter(b => !isBannerPast(b)))
   const ranges = createMemo(() => [...new Set(activeBanners().map(b => `${b.start} → ${b.end}`))])
+  const bannersByRange = createMemo(() => {
+    const map = new Map<string, Banner[]>()
+    for (const b of activeBanners()) {
+      const range = `${b.start} → ${b.end}`
+      const list = map.get(range) ?? []
+      list.push(b)
+      map.set(range, list)
+    }
+    return map
+  })
   const selectedEntries = createMemo(() => [...targets.selected].sort((a, b) => a.priority - b.priority))
   const aggregatedSelected = createMemo(() => aggregateTargets(selectedEntries()))
   const aggregatedMap = createMemo(() => {
@@ -186,7 +196,7 @@ export const TargetPicker: Component = () => {
             <div class="space-y-2">
               <div class="text-sm text-emerald-200 font-semibold">{range}</div>
               <div class="gap-3 grid grid-cols-2 lg:grid-cols-3 md:grid-cols-4 xl:grid-cols-4">
-                <For each={game.banners().filter(b => !isBannerPast(b) && `${b.start} → ${b.end}` === range)}>
+                <For each={bannersByRange().get(range)}>
                   {(b) => {
                     const target = () => findAggregate(b.featured)
                     return (

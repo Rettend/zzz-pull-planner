@@ -9,9 +9,9 @@ import { useUIStore } from '~/stores/ui'
 export function PlannerInputsPanel() {
   const [ui, actions] = useUIStore()
   const game = useGame()
-  const inputs = () => ui.local.plannerInputs
-  const scenario = () => ui.local.scenario
-  const luckMode = () => ui.local.plannerInputs.luckMode ?? 'realistic'
+  const inputs = createMemo(() => ui.local.plannerInputs)
+  const scenario = createMemo(() => ui.local.scenario)
+  const luckMode = createMemo(() => ui.local.plannerInputs.luckMode ?? 'realistic')
 
   const activeBanners = createMemo(() => game.banners().filter(b => !isBannerPast(b)))
   const ranges = createMemo(() => computePhaseRanges(activeBanners()))
