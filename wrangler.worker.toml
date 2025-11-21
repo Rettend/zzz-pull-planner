@@ -11,7 +11,7 @@ database_id = "7fafd514-2b33-48e0-ae42-7e58e14b770a"
 [[r2_buckets]]
 binding = "ASSETS_BUCKET"
 bucket_name = "zzz-assets"
-preview_bucket_name = "zzz-assets-preview"
+preview_bucket_name = "zzz-assets"
 
 [triggers]
 crons = [ "0 4 * * *" ]
