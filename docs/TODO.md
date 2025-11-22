@@ -3,10 +3,10 @@
 ## FIX
 
 - [ ] redesign plan and what this means ui to be more visual, and response for mobile
-- [ ] ssr? for image prefetch mostly
 - [ ] perf fix: accounts tab without unmounting?
 - [ ] vitest
 
+- [-] ssr? for image prefetch mostly
 - [x] priority list drag and drop does not work on mobile
 - [x] fix prio list grab and drop issues
 - [x] move footer to top

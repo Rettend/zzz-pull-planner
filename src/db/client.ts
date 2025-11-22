@@ -17,8 +17,8 @@ export async function useDb() {
 
   const db = event.nativeEvent.context.cloudflare?.env?.DB
   if (!db) {
-    console.error('DB binding not found in context:', event.nativeEvent.context)
-    throw new Error('DB binding not available in cloudflare context')
+    console.warn('DB binding not found in context, returning undefined')
+    return undefined
   }
 
   return drizzle(db, { schema })

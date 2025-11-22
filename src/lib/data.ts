@@ -36,6 +36,14 @@ export const getGameData = query(async (): Promise<GameData> => {
   'use server'
   const db = await useDb()
 
+  if (!db) {
+    return {
+      banners: [],
+      agents: {},
+      wEngines: {},
+    }
+  }
+
   const allBanners = await db.query.banners.findMany({
     orderBy: [asc(banners.startUtc)],
     with: {
