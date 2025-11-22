@@ -165,7 +165,7 @@ export function PlanOverview(props: PlanOverviewProps) {
             {' '}
             <span class="text-emerald-300">{props.scenario()}</span>
           </div>
-          <div class="flex gap-2 items-center">
+          <div class="flex flex-wrap gap-2 items-center justify-end">
             <Badge
               ok={props.plan().totals.agentsGot >= selectedCounts().agents}
               label={`${props.plan().totals.agentsGot} Agents`}
@@ -223,7 +223,7 @@ export function PlanOverview(props: PlanOverviewProps) {
                   ]}
                 />
 
-                <ul class="gap-x-3 gap-y-1 grid" style={{ 'grid-template-columns': '12rem 2rem 8rem auto' }}>
+                <ul class="gap-x-3 gap-y-1 grid grid-cols-1 md:grid-cols-[12rem_2rem_8rem_auto]">
                   <ChannelCostRow
                     label="Agents cost"
                     value={costs()?.agent ?? 0}

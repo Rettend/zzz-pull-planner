@@ -83,7 +83,7 @@ export function CheckboxField(props: {
   onChange: (e: Event & { currentTarget: HTMLInputElement }) => void
 }) {
   return (
-    <label class="flex gap-2 items-center">
+    <label class="flex gap-2 items-center justify-center lg:justify-start">
       <input type="checkbox" class="accent-emerald-400 size-4" checked={props.checked} onChange={e => props.onChange(e)} />
       <span class="text-xs text-zinc-400">{props.label}</span>
     </label>
@@ -100,7 +100,7 @@ export function StatRow(props: {
   valueOk?: boolean
 }) {
   return (
-    <li title={props.title} class="contents">
+    <li title={props.title} class="p-2 border-b border-zinc-800/50 gap-x-3 gap-y-1 grid grid-cols-[1fr_auto] md:p-0 last:border-0 md:border-0 md:contents">
       <div class="text-zinc-300 flex gap-2 items-center">
         {props.label}
         {props.trailing}
@@ -112,14 +112,14 @@ export function StatRow(props: {
             )
           : null}
       </div>
-      <div class="flex gap-2 items-center">
+      <div class="flex gap-2 col-span-2 items-center md:col-span-1">
         {props.badge
           ? (
               <Badge ok={props.badge.ok} label={props.badge.label} />
             )
           : null}
       </div>
-      <div class="text-xs text-zinc-400">
+      <div class="text-xs text-zinc-400 col-span-2 md:col-span-1">
         {props.explain}
       </div>
     </li>

@@ -18,9 +18,9 @@ export function PlannerInputsPanel() {
 
   return (
     <div class="space-y-4">
-      <div class="gap-3 grid grid-cols-2">
-        <NumberField label="Pulls on hand P0" min={0} {...numberInput(inputs, actions.setPlannerInput, 'pullsOnHand', { min: 0 })} />
-        <span />
+      <div class="gap-3 grid grid-cols-1 sm:grid-cols-2">
+        <NumberField label="Pulls on hand" min={0} {...numberInput(inputs, actions.setPlannerInput, 'pullsOnHand', { min: 0 })} />
+        <span class="hidden sm:block" />
 
         <For each={ranges()}>
           {(_, index) => (
@@ -38,10 +38,10 @@ export function PlannerInputsPanel() {
           )}
         </For>
 
-        <div class="my-2 bg-zinc-700/50 col-span-2 h-px" />
+        <div class="my-2 bg-zinc-700/50 col-span-1 h-px sm:col-span-2" />
 
         <NumberField
-          label="Agent pity (pA)"
+          label="Agent pity"
           min={0}
           max={ui.local.planningMode === 's-rank' ? 89 : 9}
           {...numberInput(inputs, actions.setPlannerInput, 'pityAgentStart', { min: 0, max: ui.local.planningMode === 's-rank' ? 89 : 9 })}
@@ -49,7 +49,7 @@ export function PlannerInputsPanel() {
         <CheckboxField label="Agent guaranteed" {...boolInput(inputs, actions.setPlannerInput, 'guaranteedAgentStart')} />
 
         <NumberField
-          label="W-Engine pity (pW)"
+          label="W-Engine pity"
           min={0}
           max={ui.local.planningMode === 's-rank' ? 79 : 9}
           {...numberInput(inputs, actions.setPlannerInput, 'pityEngineStart', { min: 0, max: ui.local.planningMode === 's-rank' ? 79 : 9 })}
@@ -57,7 +57,7 @@ export function PlannerInputsPanel() {
         <CheckboxField label="W-Engine guaranteed" {...boolInput(inputs, actions.setPlannerInput, 'guaranteedEngineStart')} />
       </div>
 
-      <div class="my-2 bg-zinc-700/50 col-span-2 h-px" />
+      <div class="my-2 bg-zinc-700/50 col-span-1 h-px sm:col-span-2" />
 
       <div class="text-sm mt-6 space-y-3">
         <div class="flex flex-wrap gap-2 items-center">

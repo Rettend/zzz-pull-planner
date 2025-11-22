@@ -366,7 +366,7 @@ export const TargetPicker: Component = () => {
           {range => (
             <div class="space-y-2">
               <div class="text-sm text-emerald-200 font-semibold">{range}</div>
-              <div class="gap-3 grid grid-cols-2 lg:grid-cols-3 md:grid-cols-4 xl:grid-cols-4">
+              <div class="gap-3 grid grid-cols-2 lg:grid-cols-2 md:grid-cols-4 xl:grid-cols-4">
                 {(() => {
                   const uniqueTargets = createMemo(() => {
                     const banners = bannersByRange().get(range) || []

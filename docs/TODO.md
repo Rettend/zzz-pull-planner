@@ -2,7 +2,7 @@
 
 ## FIX
 
-- [ ] redesign plan and what this means ui to be more visual, and response for mobile
+- [ ] redesign plan and what this means ui to be more visual, and response for mobile (hard)
 - [ ] perf fix: accounts tab without unmounting?
 - [ ] vitest
 

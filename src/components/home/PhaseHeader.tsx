@@ -11,7 +11,7 @@ interface PhaseHeaderProps {
 
 export function PhaseHeader(props: PhaseHeaderProps) {
   return (
-    <div class="flex items-center justify-between">
+    <div class="flex flex-wrap gap-y-2 items-center justify-between">
       <div class="text-emerald-200 font-semibold">{props.title}</div>
       <div class="flex gap-3 items-center">
         <div class="text-xs text-zinc-400">
