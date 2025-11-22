@@ -1,7 +1,7 @@
 import type { Component } from 'solid-js'
 import type { Banner, ChannelType } from '~/lib/constants'
 import type { TargetAggregate } from '~/stores/targets'
-import { createEffect, createMemo, createSignal, For, onCleanup, Show } from 'solid-js'
+import { createMemo, createSignal, For, Show } from 'solid-js'
 import { Portal } from 'solid-js/web'
 import { isBannerPast } from '~/lib/constants'
 import { computePlan, emptyPlan } from '~/lib/planner'
@@ -139,6 +139,12 @@ export const TargetPicker: Component = () => {
   const [ghostPosition, setGhostPosition] = createSignal<{ x: number, y: number } | null>(null)
   const [touchStartPos, setTouchStartPos] = createSignal<{ x: number, y: number } | null>(null)
 
+  function cleanupTouch() {
+    window.removeEventListener('touchmove', handleTouchMove)
+    window.removeEventListener('touchend', handleTouchEnd)
+    window.removeEventListener('touchcancel', handleTouchEnd)
+  }
+
   function handleTouchStart(e: TouchEvent, index: number) {
     if (e.touches.length !== 1)
       return
@@ -150,6 +156,7 @@ export const TargetPicker: Component = () => {
 
     const timeout = window.setTimeout(() => {
       // Long press triggered
+      setTouchTimeout(null)
       setDragIndex(index)
       setDragActive(true)
       setGhostPosition({ x: startX, y: startY })
@@ -160,28 +167,12 @@ export const TargetPicker: Component = () => {
     }, 200) // 200ms long press
 
     setTouchTimeout(timeout)
+
+    // Add global listeners with passive: false to allow preventing scroll
+    window.addEventListener('touchmove', handleTouchMove, { passive: false })
+    window.addEventListener('touchend', handleTouchEnd)
+    window.addEventListener('touchcancel', handleTouchEnd)
   }
-
-  createEffect(() => {
-    if (dragActive()) {
-      // Prevent browser scrolling
-      document.body.style.touchAction = 'none'
-
-      const preventScroll = (e: TouchEvent) => {
-        if (e.cancelable)
-          e.preventDefault()
-      }
-      // Add to window as well to catch everything
-      window.addEventListener('touchmove', preventScroll, { passive: false })
-      document.addEventListener('touchmove', preventScroll, { passive: false })
-
-      onCleanup(() => {
-        document.body.style.touchAction = ''
-        window.removeEventListener('touchmove', preventScroll)
-        document.removeEventListener('touchmove', preventScroll)
-      })
-    }
-  })
 
   function handleTouchMove(e: TouchEvent) {
     const timeout = touchTimeout()
@@ -193,33 +184,34 @@ export const TargetPicker: Component = () => {
         clearTimeout(timeout)
         setTouchTimeout(null)
         setTouchStartPos(null)
+        cleanupTouch()
+        return
       }
     }
 
-    if (dragActive() && ghostPosition()) {
-      const touch = e.touches[0]
-      setGhostPosition({ x: touch.clientX, y: touch.clientY })
+    if (dragActive()) {
+      if (e.cancelable)
+        e.preventDefault()
 
-      // Find target under finger
-      const element = document.elementFromPoint(touch.clientX, touch.clientY)
-      const targetCard = element?.closest('[data-sort-index]') as HTMLElement
+      if (ghostPosition()) {
+        const touch = e.touches[0]
+        setGhostPosition({ x: touch.clientX, y: touch.clientY })
 
-      if (targetCard) {
-        const index = Number.parseInt(targetCard.dataset.sortIndex || '-1')
-        if (index !== -1 && index !== dragIndex()) {
-          // Calculate if we are closer to the left or right/bottom
-          const rect = targetCard.getBoundingClientRect()
-          const center = rect.left + rect.width / 2
-          // Simple logic: if we are on a card, we swap with it (or insert before/after)
-          // Reusing the existing logic might be tricky without the event dx.
-          // Let's just set insertIndex to the target's index
-          // But we need to know if we are "after" it.
-          // For simplicity in grid, let's just say if we overlap > 50%?
-          // Or just simple: if we are over it, we target it.
+        // Find target under finger
+        const element = document.elementFromPoint(touch.clientX, touch.clientY)
+        const targetCard = element?.closest('[data-sort-index]') as HTMLElement
 
-          // Let's refine: if x > center, insert after.
-          const isAfter = touch.clientX > center
-          setInsertIndex(isAfter ? index + 1 : index)
+        if (targetCard) {
+          const index = Number.parseInt(targetCard.dataset.sortIndex || '-1')
+          if (index !== -1 && index !== dragIndex()) {
+            // Calculate if we are closer to the left or right/bottom
+            const rect = targetCard.getBoundingClientRect()
+            const center = rect.left + rect.width / 2
+
+            // Let's refine: if x > center, insert after.
+            const isAfter = touch.clientX > center
+            setInsertIndex(isAfter ? index + 1 : index)
+          }
         }
       }
     }
@@ -239,8 +231,6 @@ export const TargetPicker: Component = () => {
       const toLocal = insertIndex()
 
       if (fromLocal != null && toLocal != null) {
-        // Reuse the logic from onSelectedDrop but we need to call it or duplicate it
-        // Let's extract the reorder logic
         commitReorder(fromLocal, toLocal)
       }
 
@@ -249,6 +239,8 @@ export const TargetPicker: Component = () => {
       setDragActive(false)
       setGhostPosition(null)
     }
+
+    cleanupTouch()
   }
 
   function commitReorder(fromLocal: number, toLocal: number) {
@@ -467,8 +459,6 @@ export const TargetPicker: Component = () => {
                     onDragEnd={onDragEnd}
                     onDragOver={e => onCardDragOver(e, i())}
                     onTouchStart={e => handleTouchStart(e, i())}
-                    onTouchMove={handleTouchMove}
-                    onTouchEnd={handleTouchEnd}
                     onContextMenu={e => e.preventDefault()}
                     style={{
                       display: isDragged() && dragActive() ? 'none' : undefined,
