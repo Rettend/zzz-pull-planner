@@ -14,12 +14,13 @@ export const TargetIconCard: Component<{
   onRemove?: () => void
   context?: 'selector' | 'selected'
   selected?: boolean
-  notMet?: boolean
+  met?: boolean
   mindscapeLevel?: number
   onIncrementMindscape?: () => void
   onDecrementMindscape?: () => void
   channel?: 'agent' | 'engine'
   showMindscapeControls?: boolean
+  class?: string
 }> = (props) => {
   const game = useGame()
   const agent = createMemo(() => game.resolveAgent(props.name))
@@ -30,9 +31,10 @@ export const TargetIconCard: Component<{
   const attrIcon = createMemo(() => agent() ? resolveAttributeIcon(agent()!.attribute) : undefined)
   const specIcon = createMemo(() => game.resolveSpecialtyIcon((agent() ?? wengine())?.specialty))
   const borderClass = createMemo(() => {
-    if (props.context === 'selector' && props.selected) {
-      return props.notMet ? 'border-red-500' : 'border-emerald-500'
-    }
+    if (props.met === true)
+      return 'border-emerald-500'
+    if (props.met === false)
+      return 'border-red-500'
     return 'border-zinc-700'
   })
   const cursorClass = createMemo(() => props.context === 'selector' ? 'cursor-pointer' : (props.muted ? 'hover:border-emerald-500/70' : 'cursor-grab'))
@@ -56,7 +58,7 @@ export const TargetIconCard: Component<{
   })
 
   return (
-    <div class={`group border-2 ${borderClass()} rounded-xl bg-zinc-800/50 h-100px shadow-sm transition-colors relative ${cursorClass()}  ${props.context === 'selector' && !props.selected ? 'hover:border-emerald-500/70' : ''}`} style={{ width: props.showMindscapeControls ? `${CARD_WITH_PANEL_WIDTH}px` : `${CARD_WIDTH}px` }} title={props.name}>
+    <div class={`group border-2 ${borderClass()} rounded-xl bg-zinc-800/50 h-100px shadow-sm transition-colors relative ${cursorClass()}  ${props.context === 'selector' && !props.selected ? 'hover:border-emerald-500/70' : ''}  ${props.class ?? ''}`} style={{ width: props.showMindscapeControls ? `${CARD_WITH_PANEL_WIDTH}px` : `${CARD_WIDTH}px` }} title={props.name}>
       <div class="rounded-inherit inset-0 absolute overflow-hidden">
         <div class="h-full inset-0 absolute" style={{ width: props.showMindscapeControls ? `${CARD_WIDTH}px` : '100%' }}>
           <img src={bg() || ''} alt={props.name} class={`h-full w-full inset-0 absolute object-cover ${props.muted ? 'grayscale brightness-75 opacity-80' : ''}`} />

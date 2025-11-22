@@ -6,9 +6,9 @@ import type { TargetAggregate } from '~/stores/targets'
 import { createMemo, createSignal, For, Show } from 'solid-js'
 import { Badge, BudgetBar, StatRow } from '~/components/ui'
 import { formatPlanCopyText } from '~/lib/clipboard'
-import { buildPhaseRanges, calculateDisplayedCost, channelBreakdownParts, computeFundingSummary, createFundedMindscapes } from '~/lib/plan-view'
+import { buildPhaseRanges, calculateDisplayedCost, channelBreakdownParts, createFundedMindscapes } from '~/lib/plan-view'
 import { useGame } from '~/stores/game'
-import { formatSlug } from '~/utils'
+import { TargetIconCard } from '../TargetIconCard'
 import { ChannelCostRow } from './ChannelCostRow'
 import { PhaseHeader } from './PhaseHeader'
 
@@ -31,16 +31,6 @@ export function PlanOverview(props: PlanOverviewProps) {
   const totals = createMemo(() => props.plan().totals)
 
   const fundedMindscapes = createMemo(() => createFundedMindscapes(props.plan()))
-  const agentFunding = createMemo(() => computeFundingSummary({
-    groupedTargets: props.groupedTargets(),
-    funded: fundedMindscapes(),
-    channel: 'agent',
-  }))
-  const engineFunding = createMemo(() => computeFundingSummary({
-    groupedTargets: props.groupedTargets(),
-    funded: fundedMindscapes(),
-    channel: 'engine',
-  }))
 
   const selectedCounts = createMemo(() => {
     const selected = props.selectedTargets()
@@ -139,7 +129,35 @@ export function PlanOverview(props: PlanOverviewProps) {
       .filter(x => x.count >= 0.5)
   })
 
-  const missedTargets = createMemo(() => [...agentFunding().missed, ...engineFunding().missed])
+  const securedItems = createMemo(() => {
+    const list: { name: string, level: number, channel: 'agent' | 'engine' }[] = []
+    const funded = fundedMindscapes()
+
+    for (const t of props.groupedTargets()) {
+      if (funded.has(t.name)) {
+        const level = funded.get(t.name)!
+        if (level >= -1) {
+          list.push({ name: t.name, level, channel: t.channel })
+        }
+      }
+    }
+    return list
+  })
+
+  const missingItems = createMemo(() => {
+    const list: { name: string, current: number, desired: number, channel: 'agent' | 'engine' }[] = []
+    const funded = fundedMindscapes()
+
+    for (const t of props.groupedTargets()) {
+      const current = funded.get(t.name) ?? -1
+      const desired = t.count - 1
+
+      if (current < desired) {
+        list.push({ name: t.name, current, desired, channel: t.channel })
+      }
+    }
+    return list
+  })
 
   async function onCopy() {
     try {
@@ -269,77 +287,168 @@ export function PlanOverview(props: PlanOverviewProps) {
           }}
         </For>
 
-        <div class="p-3 border border-zinc-700 rounded-lg bg-zinc-900/40 space-y-2">
-          <div class="text-emerald-200 font-semibold">What this means</div>
-          <ul class="text-sm text-zinc-300 space-y-1">
-            <li>
-              You get
-              {' '}
-              <span class="text-emerald-300">{totals().agentsGot}</span>
-              {' '}
-              Agent(s) and
-              {' '}
-              <span class="text-emerald-300">{totals().enginesGot}</span>
-              {' '}
-              W-Engine(s) in this scenario.
-            </li>
-            <Show when={agentFunding().funded.length}>
-              <li>
-                Funded Agents:
-                {' '}
-                <span class="text-emerald-300">{agentFunding().funded.map(formatSlug).join(', ')}</span>
-              </li>
-            </Show>
-            <Show when={engineFunding().funded.length}>
-              <li>
-                Funded W-Engines:
-                {' '}
-                <span class="text-emerald-300">{engineFunding().funded.map(formatSlug).join(', ')}</span>
-              </li>
-            </Show>
-            <Show when={missedTargets().length}>
-              <li>
-                Not funded yet:
-                {' '}
-                <span class="text-red-300">{missedTargets().map(formatSlug).join(', ')}</span>
-              </li>
-            </Show>
+        <div class="space-y-6">
+          <div class="flex gap-2 items-center">
+            <div class="bg-zinc-800 flex-1 h-px" />
+            <span class="text-xs text-zinc-500 tracking-wider font-medium uppercase">Plan Summary</span>
+            <div class="bg-zinc-800 flex-1 h-px" />
+          </div>
 
-            <Show when={estimatedARanks().length > 0}>
-              <li class="mt-1 pt-1 border-t border-zinc-700/50">
-                <div class="text-xs text-zinc-400 mb-0.5">Estimated A-Ranks:</div>
-                <div class="text-purple-300 leading-relaxed">
-                  {estimatedARanks().map(x => `+${Math.round(x.count)} ${formatSlug(x.name)}`).join(', ')}
+          <div class="gap-6 grid grid-cols-1 lg:grid-cols-2">
+            {/* Left Column: Secured & Missing */}
+            <div class="space-y-6">
+              {/* Secured Section */}
+              <Show when={securedItems().length > 0}>
+                <div class="space-y-3">
+                  <div class="flex items-center justify-between">
+                    <h3 class="text-emerald-400 font-medium flex gap-2 items-center">
+                      <i class="i-ph:check-circle-fill" />
+                      Secured
+                    </h3>
+                    <span class="text-xs text-zinc-500">
+                      {totals().agentsGot}
+                      {' '}
+                      Agents,
+                      {' '}
+                      {totals().enginesGot}
+                      {' '}
+                      Engines
+                    </span>
+                  </div>
+                  <div class="gap-3 grid grid-cols-[repeat(auto-fill,minmax(90px,1fr))]">
+                    <For each={securedItems()}>
+                      {item => (
+                        <div class="flex flex-col gap-1 items-center">
+                          <TargetIconCard
+                            name={item.name}
+                            mindscapeLevel={item.level}
+                            selected
+                            met={true}
+                            channel={item.channel}
+                            class="!cursor-default"
+                          />
+                          <div class="text-xs text-emerald-300 font-medium px-2 py-0.5 border border-emerald-900/50 rounded bg-emerald-950/40 shadow-sm">
+                            M
+                            {item.level}
+                          </div>
+                        </div>
+                      )}
+                    </For>
+                  </div>
                 </div>
-              </li>
-            </Show>
+              </Show>
 
+              {/* Missing Section */}
+              <Show when={missingItems().length > 0}>
+                <div class="flex flex-col gap-3 h-full">
+                  <h3 class="text-red-400 font-medium flex gap-2 items-center">
+                    <i class="i-ph:warning-circle-fill" />
+                    Missing
+                  </h3>
+                  <div class="gap-3 grid grid-cols-[repeat(auto-fill,minmax(90px,1fr))]">
+                    <For each={missingItems()}>
+                      {item => (
+                        <div class="flex flex-col gap-1 transition-opacity items-center relative">
+                          <div class="relative">
+                            <TargetIconCard
+                              name={item.name}
+                              mindscapeLevel={item.desired}
+                              selected
+                              met={false}
+                              channel={item.channel}
+                              class="!cursor-default"
+                            />
+                          </div>
+                          <div class="flex flex-wrap gap-1 w-full justify-center">
+                            <Show
+                              when={item.desired - item.current <= 3}
+                              fallback={(
+                                <div class="text-xs text-red-300 font-medium px-1.5 py-0.5 text-center border border-red-900/50 rounded bg-red-950/40 shadow-sm">
+                                  M
+                                  {item.current + 1}
+                                  -M
+                                  {item.desired}
+                                </div>
+                              )}
+                            >
+                              <For each={Array.from({ length: item.desired - item.current }, (_, i) => item.current + 1 + i)}>
+                                {level => (
+                                  <div class="text-xs text-red-300 font-medium px-1.5 py-0.5 text-center border border-red-900/50 rounded bg-red-950/40 min-w-[24px] shadow-sm">
+                                    M
+                                    {level}
+                                  </div>
+                                )}
+                              </For>
+                            </Show>
+                          </div>
+                        </div>
+                      )}
+                    </For>
+                  </div>
+                </div>
+              </Show>
+            </div>
+
+            {/* Right Column: Estimated A-Ranks */}
+            <Show when={estimatedARanks().length > 0}>
+              <div class="flex flex-col gap-3 h-full">
+                <h3 class="text-purple-400 font-medium flex gap-2 items-center">
+                  <i class="i-ph:plus-circle-fill" />
+                  Estimated A-Ranks
+                </h3>
+                <div class="border border-zinc-800/50 rounded-xl bg-zinc-900/20 flex-1">
+                  <div class="gap-3 grid grid-cols-[repeat(auto-fill,minmax(90px,1fr))]">
+                    <For each={estimatedARanks()}>
+                      {item => (
+                        <div class="flex flex-col gap-1 items-center">
+                          <TargetIconCard
+                            name={item.name}
+                            mindscapeLevel={Math.round(item.count) - 1}
+                            selected
+                            channel="agent"
+                            class="!border-purple-500/60 !cursor-default"
+                          />
+                          <div class="text-xs text-purple-300 font-medium px-2 py-0.5 border border-purple-900/50 rounded bg-purple-950/40 shadow-sm">
+                            ~
+                            {Math.round(item.count)}
+                          </div>
+                        </div>
+                      )}
+                    </For>
+                  </div>
+                </div>
+              </div>
+            </Show>
+          </div>
+
+          {/* Warnings & Stats */}
+          <div class="text-sm pt-4 border-t border-zinc-800/50 gap-2 grid">
             <For each={props.plan().phases}>
               {(phase, index) => (
                 <Show when={phase.shortfallEnd && (phase.shortfallEnd ?? 0) > 0}>
-                  <li>
-                    You would need
-                    {' '}
-                    <span class="text-red-300">{Math.round(phase.shortfallEnd ?? 0)}</span>
-                    {' '}
-                    more pulls at the end of Phase
-                    {' '}
-                    {index() + 1}
-                    {' '}
-                    to fund all selections up to that point.
-                  </li>
+                  <div class="text-red-200 p-3 border border-red-900/30 rounded-md bg-red-950/20 flex gap-3 items-start">
+                    <i class="i-ph:warning-bold mt-0.5 shrink-0" />
+                    <div>
+                      Phase
+                      {' '}
+                      {index() + 1}
+                      {' '}
+                      Not Met: You need
+                      {' '}
+                      <span class="text-red-100 font-bold">{Math.round(phase.shortfallEnd ?? 0)}</span>
+                      {' '}
+                      more pulls to fund everything up to this point.
+                    </div>
+                  </div>
                 </Show>
               )}
             </For>
 
-            <li>
-              End of plan you have
-              {' '}
-              <span class="text-emerald-300">{Math.round(totals().pullsLeftEnd)}</span>
-              {' '}
-              pulls left.
-            </li>
-          </ul>
+            <div class="p-3 border border-zinc-800 rounded-md bg-zinc-900/50 flex items-center justify-between">
+              <span class="text-zinc-400">Remaining Pulls</span>
+              <span class="text-lg text-emerald-300 font-mono">{Math.round(totals().pullsLeftEnd)}</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>

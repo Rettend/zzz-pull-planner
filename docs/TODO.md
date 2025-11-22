@@ -2,10 +2,10 @@
 
 ## FIX
 
-- [ ] redesign plan and what this means ui to be more visual, and response for mobile (hard)
 - [ ] perf fix: accounts tab without unmounting?
 - [ ] vitest
-
+- [ ] redesign plan and what this means ui to be more visual, and response for mobile (hard)
+  - [x] summary view redesign
 - [x] ssr
 - [x] priority list drag and drop does not work on mobile
 - [x] fix prio list grab and drop issues

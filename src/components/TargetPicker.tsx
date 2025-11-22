@@ -399,7 +399,7 @@ export const TargetPicker: Component = () => {
                               context="selector"
                               selected={isSelected(targetName)}
                               muted={!isSelected(targetName)}
-                              notMet={isSelected(targetName) && !isFullyFunded()(targetName)}
+                              met={isSelected(targetName) ? isFullyFunded()(targetName) : undefined}
                               showMindscapeControls
                               mindscapeLevel={target() ? target()!.count - 1 : undefined}
                               channel={channel}
