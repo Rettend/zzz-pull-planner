@@ -69,7 +69,7 @@ export function namesForPhaseChannel(
 export function describeScenario(scenario: Scenario): string {
   switch (scenario) {
     case 'p50':
-      return 'Risk: p50 is the median — half the time you\'ll spend more, half less.'
+      return 'Risk: p50 is the median; half the time you\'ll spend more, half less.'
     case 'p60':
       return 'Risk: p60 adds a small buffer over median; a realistic default for many players.'
     case 'p75':
