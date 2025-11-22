@@ -7,7 +7,7 @@
 - [ ] perf fix: accounts tab without unmounting?
 - [ ] vitest
 
-- [-] priority list drag and drop does not work on mobile
+- [x] priority list drag and drop does not work on mobile
 - [x] fix prio list grab and drop issues
 - [x] move footer to top
 - [x] fix agent and w engine pity and guaranteed not working for A ranks
