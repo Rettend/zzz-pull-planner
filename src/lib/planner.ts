@@ -231,18 +231,29 @@ export function computePlan(
         if (gIdx === undefined || gIdx >= limitGlobalIndexExclusive)
           continue
 
-        if (t.channel === 'agent') {
-          const c = costToFeaturedAgent(stAgent.pity, stAgent.guaranteed, qAgent, scenario)
-          reserve += Math.max(0, c)
-          stAgent.pity = 0
-          stAgent.guaranteed = false
+        const rarity = rarityMap.get(t.name) ?? 5
+        let c = 0
+
+        if (rarity === 4) {
+          // A-Rank cost
+          const state = t.channel === 'agent' ? stAgent : stEngine
+          c = costToFeaturedARank(t.channel, scenario, luckMode, state.pity, state.guaranteed)
         }
         else {
-          const c = costToFeaturedEngine(stEngine.pity, stEngine.guaranteed, qEngine, scenario)
-          reserve += Math.max(0, c)
-          stEngine.pity = 0
-          stEngine.guaranteed = false
+          // S-Rank cost
+          if (t.channel === 'agent') {
+            c = costToFeaturedAgent(stAgent.pity, stAgent.guaranteed, qAgent, scenario)
+            stAgent.pity = 0
+            stAgent.guaranteed = false
+          }
+          else {
+            c = costToFeaturedEngine(stEngine.pity, stEngine.guaranteed, qEngine, scenario)
+            stEngine.pity = 0
+            stEngine.guaranteed = false
+          }
         }
+
+        reserve += Math.max(0, c)
       }
     }
     return reserve
