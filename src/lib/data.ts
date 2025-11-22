@@ -37,12 +37,14 @@ export const getGameData = query(async (): Promise<GameData> => {
   const db = await useDb()
 
   if (!db) {
+    console.warn('getGameData: No DB connection')
     return {
       banners: [],
       agents: {},
       wEngines: {},
     }
   }
+  console.log('getGameData: DB connected, fetching banners...')
 
   const allBanners = await db.query.banners.findMany({
     orderBy: [asc(banners.startUtc)],

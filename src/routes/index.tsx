@@ -109,9 +109,7 @@ export default function Home() {
 
         <section class="p-4 border border-zinc-700 rounded-xl bg-zinc-800/50 space-y-3">
           <h2 class="text-lg text-emerald-300 tracking-wide font-bold">Select Targets</h2>
-          <ClientOnly fallback={<div class="rounded-lg bg-zinc-800/50 h-64 animate-pulse" />}>
-            <TargetPicker />
-          </ClientOnly>
+          <TargetPicker />
         </section>
 
         <div class="gap-6 grid lg:grid-cols-[1fr_2fr]">

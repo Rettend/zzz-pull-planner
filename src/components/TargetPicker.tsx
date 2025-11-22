@@ -1,8 +1,9 @@
 import type { Component } from 'solid-js'
 import type { Banner, ChannelType } from '~/lib/constants'
 import type { TargetAggregate } from '~/stores/targets'
-import { createMemo, createSignal, For, Show } from 'solid-js'
+import { createMemo, createSignal, For, onMount, Show } from 'solid-js'
 import { Portal } from 'solid-js/web'
+import { ClientOnly } from '~/components/ClientOnly'
 import { isBannerPast } from '~/lib/constants'
 import { computePlan, emptyPlan } from '~/lib/planner'
 import { useGame } from '~/stores/game'
@@ -15,9 +16,12 @@ export const TargetPicker: Component = () => {
   const [ui, uiActions] = useUIStore()
   const game = useGame()
 
+  const [isHydrated, setIsHydrated] = createSignal(false)
+  onMount(() => setIsHydrated(true))
+
   const inputs = createMemo(() => ui.local.plannerInputs)
   const scenario = createMemo(() => ui.local.scenario)
-  const planningMode = createMemo(() => ui.local.planningMode)
+  const planningMode = createMemo(() => isHydrated() ? ui.local.planningMode : 's-rank')
   const isARankMode = createMemo(() => planningMode() === 'a-rank')
 
   const activeBanners = createMemo(() => game.banners().filter(b => !isBannerPast(b)))
@@ -421,81 +425,83 @@ export const TargetPicker: Component = () => {
       {/* Selected */}
       <div class="space-y-2">
         <div class="text-sm text-emerald-200 font-semibold">Priority List</div>
-        <div
-          class="flex flex-wrap gap-3 items-start"
-          onDragOver={e => onSelectedDragOver(e)}
-          onDrop={e => onSelectedDrop(e)}
-        >
-          <For each={visibleSelectedTargets()}>
-            {(t, i) => {
-              const beforeIndex = () => {
-                const d = dragIndex()
-                const ii = i()
-                return d != null && ii > d ? ii - 1 : ii
-              }
-              const isDragged = () => dragIndex() === i()
-              const showBefore = () => {
-                if (!dragging())
-                  return false
-                const ni = normalizedInsert()
-                const d = dragIndex()
-                if (ni == null || d == null)
-                  return false
-                if (ni === d)
-                  return i() === d
-                return ni === beforeIndex()
-              }
-              return (
-                <>
-                  <Show when={showBefore()}>
-                    <GhostPlaceholder />
-                  </Show>
+        <ClientOnly fallback={<div class="rounded-lg bg-zinc-800/50 h-32 animate-pulse" />}>
+          <div
+            class="flex flex-wrap gap-3 items-start"
+            onDragOver={e => onSelectedDragOver(e)}
+            onDrop={e => onSelectedDrop(e)}
+          >
+            <For each={visibleSelectedTargets()}>
+              {(t, i) => {
+                const beforeIndex = () => {
+                  const d = dragIndex()
+                  const ii = i()
+                  return d != null && ii > d ? ii - 1 : ii
+                }
+                const isDragged = () => dragIndex() === i()
+                const showBefore = () => {
+                  if (!dragging())
+                    return false
+                  const ni = normalizedInsert()
+                  const d = dragIndex()
+                  if (ni == null || d == null)
+                    return false
+                  if (ni === d)
+                    return i() === d
+                  return ni === beforeIndex()
+                }
+                return (
+                  <>
+                    <Show when={showBefore()}>
+                      <GhostPlaceholder />
+                    </Show>
 
-                  <div
-                    class="group select-none relative"
-                    draggable
-                    data-sort-index={i()}
-                    onDragStart={e => onDragStart(e, i())}
-                    onDragEnd={onDragEnd}
-                    onDragOver={e => onCardDragOver(e, i())}
-                    onTouchStart={e => handleTouchStart(e, i())}
-                    onContextMenu={e => e.preventDefault()}
-                    style={{
-                      display: isDragged() && dragActive() ? 'none' : undefined,
-                      'touch-action': 'none',
-                    }}
-                  >
-                    <div class="relative">
-                      <TargetIconCard
-                        name={t.name}
-                        channel={t.channel}
-                        context="selected"
-                      />
-                      <div class="text-xs text-emerald-200 font-bold px-1.5 py-0.5 border border-zinc-700 rounded bg-zinc-900/90 bottom-1 left-1 absolute backdrop-blur-sm">
-                        M
-                        {t.mindscape}
-                      </div>
-                    </div>
-                    <button
-                      class="p-1 border border-zinc-700 rounded-full bg-zinc-900/90 opacity-0 flex size-8 shadow transition-all items-center justify-center absolute hover:border-red-500 hover:bg-red-600/80 group-hover:opacity-100 -right-2 -top-2"
-                      aria-label="Remove mindscape"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        actions.removeEntry(t.id)
+                    <div
+                      class="group select-none relative"
+                      draggable
+                      data-sort-index={i()}
+                      onDragStart={e => onDragStart(e, i())}
+                      onDragEnd={onDragEnd}
+                      onDragOver={e => onCardDragOver(e, i())}
+                      onTouchStart={e => handleTouchStart(e, i())}
+                      onContextMenu={e => e.preventDefault()}
+                      style={{
+                        'display': isDragged() && dragActive() ? 'none' : undefined,
+                        'touch-action': 'none',
                       }}
                     >
-                      <i class="i-ph:x-bold text-zinc-200 size-4" />
-                    </button>
-                  </div>
-                </>
-              )
-            }}
-          </For>
+                      <div class="relative">
+                        <TargetIconCard
+                          name={t.name}
+                          channel={t.channel}
+                          context="selected"
+                        />
+                        <div class="text-xs text-emerald-200 font-bold px-1.5 py-0.5 border border-zinc-700 rounded bg-zinc-900/90 bottom-1 left-1 absolute backdrop-blur-sm">
+                          M
+                          {t.mindscape}
+                        </div>
+                      </div>
+                      <button
+                        class="p-1 border border-zinc-700 rounded-full bg-zinc-900/90 opacity-0 flex size-8 shadow transition-all items-center justify-center absolute hover:border-red-500 hover:bg-red-600/80 group-hover:opacity-100 -right-2 -top-2"
+                        aria-label="Remove mindscape"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          actions.removeEntry(t.id)
+                        }}
+                      >
+                        <i class="i-ph:x-bold text-zinc-200 size-4" />
+                      </button>
+                    </div>
+                  </>
+                )
+              }}
+            </For>
 
-          <Show when={dragging() && normalizedInsert() === nonDraggedCount() && normalizedInsert() !== dragIndex()}>
-            <GhostPlaceholder />
-          </Show>
-        </div>
+            <Show when={dragging() && normalizedInsert() === nonDraggedCount() && normalizedInsert() !== dragIndex()}>
+              <GhostPlaceholder />
+            </Show>
+          </div>
+        </ClientOnly>
       </div>
 
       <Show when={ghostPosition() && dragIndex() != null}>

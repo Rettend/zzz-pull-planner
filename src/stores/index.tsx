@@ -1,5 +1,5 @@
 import type { ParentProps } from 'solid-js'
-import { createMemo, Show } from 'solid-js'
+import { createMemo } from 'solid-js'
 import { AccountsStoreProvider, useAccountsStore } from './accounts'
 import { GameDataProvider } from './game'
 import { TargetsStoreProvider } from './targets'
@@ -19,16 +19,13 @@ export function RootStoreProvider(props: ParentProps) {
 
 function AccountScopedProviders(props: ParentProps) {
   const [accounts] = useAccountsStore()
-  const accountId = createMemo(() => accounts.currentId)
+  const accountId = createMemo(() => accounts.currentId || 'default')
+
   return (
-    <Show when={accountId()} keyed>
-      {id => (
-        <UIStoreProvider accountId={id}>
-          <TargetsStoreProvider accountId={id}>
-            {props.children}
-          </TargetsStoreProvider>
-        </UIStoreProvider>
-      )}
-    </Show>
+    <UIStoreProvider accountId={accountId()}>
+      <TargetsStoreProvider accountId={accountId()}>
+        {props.children}
+      </TargetsStoreProvider>
+    </UIStoreProvider>
   )
 }
