@@ -96,7 +96,7 @@ export default function Home() {
   }
 
   return (
-    <main class="text-emerald-100 font-mono p-6 bg-zinc-900 min-h-screen relative">
+    <main class="p-6 min-h-screen relative">
       <div class="bg-[linear-gradient(transparent_1px,#18181b_1px),linear-gradient(90deg,transparent_1px,#18181b_1px)] bg-[size:32px_32px] opacity-20 pointer-events-none inset-0 absolute" />
       <Header />
       <div class="mx-auto max-w-7xl relative space-y-6">

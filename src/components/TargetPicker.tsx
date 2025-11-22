@@ -2,6 +2,7 @@ import type { Component } from 'solid-js'
 import type { Banner, ChannelType } from '~/lib/constants'
 import type { TargetAggregate } from '~/stores/targets'
 import { createMemo, createSignal, For, Show } from 'solid-js'
+import { Portal } from 'solid-js/web'
 import { isBannerPast } from '~/lib/constants'
 import { computePlan, emptyPlan } from '~/lib/planner'
 import { useGame } from '~/stores/game'
@@ -134,21 +135,112 @@ export const TargetPicker: Component = () => {
     })
   })
 
-  function onSelectedDrop(e: DragEvent) {
-    e.preventDefault()
-    e.stopPropagation()
-    const fromLocal = dragIndex()
-    const toLocal = insertIndex()
-    if (fromLocal == null || toLocal == null)
+  const [touchTimeout, setTouchTimeout] = createSignal<number | null>(null)
+  const [ghostPosition, setGhostPosition] = createSignal<{ x: number, y: number } | null>(null)
+  const [touchStartPos, setTouchStartPos] = createSignal<{ x: number, y: number } | null>(null)
+
+  function handleTouchStart(e: TouchEvent, index: number) {
+    if (e.touches.length !== 1)
       return
 
+    const touch = e.touches[0]
+    const startX = touch.clientX
+    const startY = touch.clientY
+    setTouchStartPos({ x: startX, y: startY })
+
+    const timeout = window.setTimeout(() => {
+      // Long press triggered
+      setDragIndex(index)
+      setDragActive(true)
+      setGhostPosition({ x: startX, y: startY })
+
+      // Vibrate if supported
+      if (navigator.vibrate)
+        navigator.vibrate(50)
+    }, 200) // 200ms long press
+
+    setTouchTimeout(timeout)
+  }
+
+  function handleTouchMove(e: TouchEvent) {
+    const timeout = touchTimeout()
+    if (timeout) {
+      const touch = e.touches[0]
+      const start = touchStartPos()
+      if (start && (Math.abs(touch.clientX - start.x) > 10 || Math.abs(touch.clientY - start.y) > 10)) {
+        // Moved too much before long press -> cancel
+        clearTimeout(timeout)
+        setTouchTimeout(null)
+        setTouchStartPos(null)
+      }
+    }
+
+    if (dragActive() && ghostPosition()) {
+      e.preventDefault() // Prevent scrolling
+      const touch = e.touches[0]
+      setGhostPosition({ x: touch.clientX, y: touch.clientY })
+
+      // Find target under finger
+      const element = document.elementFromPoint(touch.clientX, touch.clientY)
+      const targetCard = element?.closest('[data-sort-index]') as HTMLElement
+
+      if (targetCard) {
+        const index = Number.parseInt(targetCard.dataset.sortIndex || '-1')
+        if (index !== -1 && index !== dragIndex()) {
+          // Calculate if we are closer to the left or right/bottom
+          const rect = targetCard.getBoundingClientRect()
+          const center = rect.left + rect.width / 2
+          // Simple logic: if we are on a card, we swap with it (or insert before/after)
+          // Reusing the existing logic might be tricky without the event dx.
+          // Let's just set insertIndex to the target's index
+          // But we need to know if we are "after" it.
+          // For simplicity in grid, let's just say if we overlap > 50%?
+          // Or just simple: if we are over it, we target it.
+
+          // Let's refine: if x > center, insert after.
+          const isAfter = touch.clientX > center
+          setInsertIndex(isAfter ? index + 1 : index)
+        }
+      }
+    }
+  }
+
+  function handleTouchEnd() {
+    const timeout = touchTimeout()
+    if (timeout) {
+      clearTimeout(timeout)
+      setTouchTimeout(null)
+    }
+    setTouchStartPos(null)
+
+    if (dragActive() && ghostPosition()) {
+      // Commit drop
+      const fromLocal = dragIndex()
+      const toLocal = insertIndex()
+
+      if (fromLocal != null && toLocal != null) {
+        // Reuse the logic from onSelectedDrop but we need to call it or duplicate it
+        // Let's extract the reorder logic
+        commitReorder(fromLocal, toLocal)
+      }
+
+      setDragIndex(null)
+      setInsertIndex(null)
+      setDragActive(false)
+      setGhostPosition(null)
+    }
+  }
+
+  function commitReorder(fromLocal: number, toLocal: number) {
     const visible = visibleSelectedTargets()
     const all = selectedEntries()
 
     const item = visible[fromLocal]
-    if (!item) return
+    if (!item)
+      return
     const fromGlobal = all.findIndex(x => x.id === item.id)
-    if (fromGlobal === -1) return
+    if (fromGlobal === -1)
+      return
 
     let toGlobal: number
     if (toLocal < visible.length) {
@@ -161,9 +253,21 @@ export const TargetPicker: Component = () => {
       toGlobal = lastGlobal + 1
     }
 
-    if (toGlobal === -1) return
+    if (toGlobal === -1)
+      return
 
     actions.reorder(fromGlobal, toGlobal)
+  }
+
+  function onSelectedDrop(e: DragEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    const fromLocal = dragIndex()
+    const toLocal = insertIndex()
+    if (fromLocal == null || toLocal == null)
+      return
+
+    commitReorder(fromLocal, toLocal)
     setDragIndex(null)
     setInsertIndex(null)
     setDragActive(false)
@@ -336,12 +440,20 @@ export const TargetPicker: Component = () => {
                   </Show>
 
                   <div
-                    class="group relative"
+                    class="group select-none relative"
                     draggable
+                    data-sort-index={i()}
                     onDragStart={e => onDragStart(e, i())}
                     onDragEnd={onDragEnd}
                     onDragOver={e => onCardDragOver(e, i())}
-                    style={{ display: isDragged() && dragActive() ? 'none' : undefined }}
+                    onTouchStart={e => handleTouchStart(e, i())}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={handleTouchEnd}
+                    onContextMenu={e => e.preventDefault()}
+                    style={{
+                      display: isDragged() && dragActive() && !ghostPosition() ? 'none' : undefined,
+                      opacity: isDragged() && dragActive() && ghostPosition() ? 0.5 : 1,
+                    }}
                   >
                     <div class="relative">
                       <TargetIconCard
@@ -375,6 +487,35 @@ export const TargetPicker: Component = () => {
           </Show>
         </div>
       </div>
+
+      <Show when={ghostPosition() && dragIndex() != null}>
+        <Portal>
+          <div
+            class="pointer-events-none fixed z-50"
+            style={{
+              left: `${ghostPosition()!.x}px`,
+              top: `${ghostPosition()!.y}px`,
+              transform: 'translate(-50%, -50%) scale(1.1)',
+            }}
+          >
+            <Show when={visibleSelectedTargets()[dragIndex()!]}>
+              {item => (
+                <div class="shadow-2xl relative">
+                  <TargetIconCard
+                    name={item().name}
+                    channel={item().channel}
+                    context="selected"
+                  />
+                  <div class="text-xs text-emerald-200 font-bold px-1.5 py-0.5 border border-zinc-700 rounded bg-zinc-900/90 bottom-1 left-1 absolute backdrop-blur-sm">
+                    M
+                    {item().mindscape}
+                  </div>
+                </div>
+              )}
+            </Show>
+          </div>
+        </Portal>
+      </Show>
     </div>
   )
 }
