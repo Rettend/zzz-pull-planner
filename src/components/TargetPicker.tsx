@@ -126,15 +126,44 @@ export const TargetPicker: Component = () => {
       setInsertIndex(selectedEntries().length)
   }
 
+  const visibleSelectedTargets = createMemo(() => {
+    return selectedEntries().filter((t) => {
+      const meta = t.channel === 'agent' ? game.resolveAgent(t.name) : game.resolveWEngine(t.name)
+      const rarity = meta?.rarity ?? 5
+      return isARankMode() ? rarity === 4 : rarity === 5
+    })
+  })
+
   function onSelectedDrop(e: DragEvent) {
     e.preventDefault()
     e.stopPropagation()
-    const from = dragIndex()
-    const to = insertIndex()
-    if (from == null || to == null)
+    const fromLocal = dragIndex()
+    const toLocal = insertIndex()
+    if (fromLocal == null || toLocal == null)
       return
 
-    actions.reorder(from, to)
+    const visible = visibleSelectedTargets()
+    const all = selectedEntries()
+
+    const item = visible[fromLocal]
+    if (!item) return
+    const fromGlobal = all.findIndex(x => x.id === item.id)
+    if (fromGlobal === -1) return
+
+    let toGlobal: number
+    if (toLocal < visible.length) {
+      const targetItem = visible[toLocal]
+      toGlobal = all.findIndex(x => x.id === targetItem.id)
+    }
+    else {
+      const lastVisible = visible[visible.length - 1]
+      const lastGlobal = all.findIndex(x => x.id === lastVisible.id)
+      toGlobal = lastGlobal + 1
+    }
+
+    if (toGlobal === -1) return
+
+    actions.reorder(fromGlobal, toGlobal)
     setDragIndex(null)
     setInsertIndex(null)
     setDragActive(false)
@@ -281,12 +310,7 @@ export const TargetPicker: Component = () => {
           onDragOver={e => onSelectedDragOver(e)}
           onDrop={e => onSelectedDrop(e)}
         >
-          <For each={selectedEntries().filter((t) => {
-            const meta = t.channel === 'agent' ? game.resolveAgent(t.name) : game.resolveWEngine(t.name)
-            const rarity = meta?.rarity ?? 5
-            return isARankMode() ? rarity === 4 : rarity === 5
-          })}
-          >
+          <For each={visibleSelectedTargets()}>
             {(t, i) => {
               const beforeIndex = () => {
                 const d = dragIndex()
