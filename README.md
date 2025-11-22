@@ -2,6 +2,8 @@
 
 A pull planning tool for Zenless Zone Zero. Gambling is solved ✅
 
+The site is available at [zzz.rettend.me](https://zzz.rettend.me/)
+
 ## Features
 
 - **Banner Planning**: View current and upcoming banners
