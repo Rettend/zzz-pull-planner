@@ -462,6 +462,7 @@ export const TargetPicker: Component = () => {
                     onContextMenu={e => e.preventDefault()}
                     style={{
                       display: isDragged() && dragActive() ? 'none' : undefined,
+                      'touch-action': 'none',
                     }}
                   >
                     <div class="relative">
