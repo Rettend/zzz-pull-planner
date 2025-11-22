@@ -147,17 +147,17 @@ export const getGameData = query(async (): Promise<GameData> => {
     const aIsRerun = aFirstAppearance !== undefined && aFirstAppearance < aStartUtc
     const bIsRerun = bFirstAppearance !== undefined && bFirstAppearance < bStartUtc
 
-    // Sort by: new agents, new engines, rerun agents, rerun engines
+    // Sort by: new agents, rerun agents, new engines, rerun engines
     const getOrder = (banner: typeof a, isRerun: boolean) => {
       if (!isRerun && banner.type === 'agent')
-        return 0 // New agent
-      if (!isRerun && banner.type === 'engine')
-        return 1 // New engine
+        return 0
       if (isRerun && banner.type === 'agent')
-        return 2 // Rerun agent
+        return 1
+      if (!isRerun && banner.type === 'engine')
+        return 2
       if (isRerun && banner.type === 'engine')
-        return 3 // Rerun engine
-      return 4 // Fallback
+        return 3
+      return 4
     }
 
     return getOrder(a, aIsRerun) - getOrder(b, bIsRerun)
