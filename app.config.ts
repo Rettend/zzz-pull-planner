@@ -5,6 +5,9 @@ export default defineConfig({
   ssr: false,
   server: {
     preset: 'cloudflare-module',
+    // prerender: {
+    //   routes: ['/', '/*404'],
+    // }
   },
   vite: {
     plugins: [UnoCSS()],

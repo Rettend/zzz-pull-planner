@@ -164,12 +164,22 @@ export const TargetPicker: Component = () => {
 
   createEffect(() => {
     if (dragActive()) {
+      // Prevent browser scrolling
+      document.body.style.touchAction = 'none'
+
       const preventScroll = (e: TouchEvent) => {
         if (e.cancelable)
           e.preventDefault()
       }
+      // Add to window as well to catch everything
+      window.addEventListener('touchmove', preventScroll, { passive: false })
       document.addEventListener('touchmove', preventScroll, { passive: false })
-      onCleanup(() => document.removeEventListener('touchmove', preventScroll))
+
+      onCleanup(() => {
+        document.body.style.touchAction = ''
+        window.removeEventListener('touchmove', preventScroll)
+        document.removeEventListener('touchmove', preventScroll)
+      })
     }
   })
 
