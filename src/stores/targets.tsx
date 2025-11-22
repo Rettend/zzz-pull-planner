@@ -2,8 +2,9 @@ import type { ParentProps } from 'solid-js'
 import type { Store } from 'solid-js/store'
 import type { Banner, ChannelType } from '~/lib/constants'
 import { makePersisted, storageSync } from '@solid-primitives/storage'
-import { batch, createContext, untrack, useContext } from 'solid-js'
+import { batch, createContext, createEffect, untrack, useContext } from 'solid-js'
 import { createStore } from 'solid-js/store'
+import { useGame } from './game'
 
 export interface SelectedTarget {
   id: string
@@ -107,6 +108,32 @@ export function TargetsStoreProvider(props: ParentProps & { accountId: string })
     const upgraded = upgradeSelected(local.selected as unknown as LegacySelectedTarget[])
     if (upgraded.length !== local.selected.length || upgraded.some((entry, idx) => entry.id !== (local.selected[idx] as any)?.id))
       setLocal('selected', upgraded)
+  })
+
+  const game = useGame()
+
+  createEffect(() => {
+    const banners = game.banners()
+    if (game.loading() || banners.length === 0)
+      return
+
+    const validTargets = new Set<string>()
+    for (const b of banners) {
+      validTargets.add(b.featured)
+      for (const t of b.featuredARanks) {
+        validTargets.add(t)
+      }
+    }
+
+    if (validTargets.size > 0) {
+      setLocal('selected', (current) => {
+        const filtered = current.filter(t => validTargets.has(t.name))
+        if (filtered.length !== current.length) {
+          return normalizeSelected(filtered)
+        }
+        return current
+      })
+    }
   })
 
   function updateSelected(updater: (list: SelectedTarget[]) => SelectedTarget[]) {
