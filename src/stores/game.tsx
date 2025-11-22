@@ -1,6 +1,7 @@
 import type { Accessor, ParentComponent } from 'solid-js'
 import type { AgentMeta, Attribute, Banner, Specialty, WEngineMeta } from '~/lib/constants'
-import { createContext, createResource, useContext } from 'solid-js'
+import { createAsync, revalidate } from '@solidjs/router'
+import { createContext, onMount, useContext } from 'solid-js'
 import { clientEnv } from '~/env/client'
 import { ATTRIBUTE_ICON, SPECIALTY_ICON, UNKNOWN_ICON } from '~/lib/constants'
 import { getGameData } from '~/lib/data'
@@ -28,9 +29,13 @@ interface GameContextType {
 const GameContext = createContext<GameContextType>()
 
 export const GameDataProvider: ParentComponent = (props) => {
-  const [data] = createResource(async () => {
-    const response = await getGameData()
-    return response
+  const data = createAsync(() => getGameData())
+
+  onMount(() => {
+    const d = data()
+    if (d && d.banners.length === 0) {
+      revalidate(getGameData.key)
+    }
   })
 
   const banners = () => {
@@ -128,7 +133,7 @@ export const GameDataProvider: ParentComponent = (props) => {
       resolveWEngine,
       resolveAttributeIcon,
       resolveSpecialtyIcon,
-      loading: () => data.loading,
+      loading: () => false,
     }}
     >
       {props.children}
