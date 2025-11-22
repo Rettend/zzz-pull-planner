@@ -6,7 +6,7 @@ export default defineConfig({
   server: {
     preset: 'cloudflare-module',
     prerender: {
-      routes: ['/404'],
+      routes: ['/404'], // does not work idk how to do it
     },
   },
   vite: {
