@@ -74,7 +74,14 @@ export const getGameData = query(async (): Promise<GameData> => {
     wEngines: {},
   }
 
+  const nowSeconds = Math.floor(Date.now() / 1000)
+
   for (const b of allBanners) {
+    // Filter out past banners
+    if (b.endUtc < nowSeconds) {
+      continue
+    }
+
     // Find the featured target (prioritize S-rank)
     const featuredEntry = b.bannerTargets.find((t: any) => t.isFeatured && t.target.rarity === 5)
     if (!featuredEntry)
