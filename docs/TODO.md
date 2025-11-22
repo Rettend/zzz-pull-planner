@@ -6,7 +6,7 @@
 - [ ] perf fix: accounts tab without unmounting?
 - [ ] vitest
 
-- [-] ssr? for image prefetch mostly
+- [x] ssg
 - [x] priority list drag and drop does not work on mobile
 - [x] fix prio list grab and drop issues
 - [x] move footer to top
