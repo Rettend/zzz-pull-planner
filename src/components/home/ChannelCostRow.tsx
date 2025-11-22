@@ -12,7 +12,6 @@ interface ChannelCostRowProps {
 }
 
 export function ChannelCostRow(props: ChannelCostRowProps) {
-  const colorClass = (kind: RoundedBreakdownPart['kind']) => kind === 'first' ? 'text-emerald-300' : 'text-amber-300'
   return (
     <StatRow
       label={props.label}
@@ -28,7 +27,10 @@ export function ChannelCostRow(props: ChannelCostRowProps) {
               </span>
               <For each={props.explanation}>
                 {part => (
-                  <span class={`${props.affordable ? colorClass(part.kind) : 'text-red-300'}`} title={part.kind === 'first' ? 'First S cost at selected risk' : 'Reserve for off-feature at selected risk'}>
+                  <span
+                    class={`${part.met ? (props.label.includes('Engine') ? 'text-sky-300' : 'text-emerald-300') : 'text-red-300'}`}
+                    title={part.kind === 'first' ? 'First S cost at selected risk' : 'Reserve for off-feature at selected risk'}
+                  >
                     +
                     {part.value}
                   </span>

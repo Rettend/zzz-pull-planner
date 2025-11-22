@@ -44,6 +44,13 @@ export interface PhaseResult {
   boughtAgents: number
   boughtEngines: number
   boughtNames: string[]
+  itemDetails: {
+    name: string
+    channel: ChannelType
+    cost: number
+    funded: boolean
+    rarity: number
+  }[]
 }
 
 export interface PhasePlan {
@@ -337,6 +344,7 @@ export function computePlan(
     let boughtAgents = 0
     let boughtEngines = 0
     const boughtNames: string[] = []
+    const itemDetails: PhaseResult['itemDetails'] = []
     let shortfallStart: number | undefined
     let shortfallEnd: number | undefined
 
@@ -367,55 +375,64 @@ export function computePlan(
         nextEngineState.guaranteed = false
       }
 
+      const currentGlobalIndex = globalIndexByName[t.name] ?? Number.POSITIVE_INFINITY
+
       const newRemainingEnd = remainingEnd - cost
       const newRemainingStart = remainingStart - cost
 
-      const currentGlobalIndex = globalIndexByName[t.name] ?? Number.POSITIVE_INFINITY
-
-      // Check if we can afford this target AND reserve for future
-      // We need to pass the *next* states to reserveForFuture because we just bought this item
       const reserveAfter = reserveForFuture(i, nextAgentState, nextEngineState, currentGlobalIndex)
 
       const affordableEnd = newRemainingEnd >= reserveAfter
       const affordableStart = newRemainingStart >= reserveAfter
 
-      if (!affordableEnd) {
-        shortfallEnd = Math.max(0, reserveAfter - newRemainingEnd)
-        shortfallStart = Math.max(0, reserveAfter - newRemainingStart)
-        break // Stop buying in this phase
-      }
+      const funded = affordableEnd
 
-      remainingEnd = newRemainingEnd
-      if (affordableStart) {
-        remainingStart = newRemainingStart
+      if (funded) {
+        remainingEnd = newRemainingEnd
+        if (affordableStart) {
+          remainingStart = newRemainingStart
+        }
+
+        if (isAgent) {
+          spentAgents += cost
+          boughtAgents += 1
+          boughtNames.push(t.name)
+        }
+        else {
+          spentEngines += cost
+          boughtEngines += 1
+          boughtNames.push(t.name)
+        }
+      }
+      else {
+        shortfallEnd = Math.max(shortfallEnd ?? 0, reserveAfter - newRemainingEnd)
+        shortfallStart = Math.max(shortfallStart ?? 0, reserveAfter - newRemainingStart)
       }
 
       if (isAgent) {
-        spentAgents += cost
-        boughtAgents += 1
-        boughtNames.push(t.name)
         agentStateSim.pity = nextAgentState.pity
         agentStateSim.guaranteed = nextAgentState.guaranteed
-
         if (rarity === 4) {
-          // If we are targeting A-ranks, we assume the pity input tracks A-rank pity
-          // So we reset it after a successful pull
           agentStateSim.pity = 0
           agentStateSim.guaranteed = false
         }
       }
       else {
-        spentEngines += cost
-        boughtEngines += 1
-        boughtNames.push(t.name)
         engineStateSim.pity = nextEngineState.pity
         engineStateSim.guaranteed = nextEngineState.guaranteed
-
         if (rarity === 4) {
           engineStateSim.pity = 0
           engineStateSim.guaranteed = false
         }
       }
+
+      itemDetails.push({
+        name: t.name,
+        channel: t.channel,
+        cost,
+        funded,
+        rarity,
+      })
     }
 
     const reserveNext = reserveForFuture(i, agentStateSim, engineStateSim, Number.POSITIVE_INFINITY)
@@ -461,6 +478,7 @@ export function computePlan(
       boughtAgents,
       boughtEngines,
       boughtNames,
+      itemDetails,
     })
   }
 

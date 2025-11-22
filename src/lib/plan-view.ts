@@ -2,7 +2,7 @@ import type { Banner, ChannelType } from '~/lib/constants'
 import type { PhasePlan, PlannerInputs, Scenario } from '~/lib/planner'
 import type { TargetAggregate } from '~/stores/targets'
 import type { BreakdownPart } from '~/utils/plan'
-import { computeChannelBreakdown, roundToTarget } from '~/utils/plan'
+import { computeChannelBreakdown } from '~/utils/plan'
 
 export type PhaseIndex = number
 
@@ -19,6 +19,7 @@ export interface FundingSummary {
 export interface RoundedBreakdownPart {
   value: number
   kind: BreakdownPart['kind']
+  met: boolean
 }
 
 function rangeKey(b: { start: string, end: string }): string {
@@ -36,7 +37,7 @@ export function phaseOfName(banners: Banner[], name: string, ranges: string[]): 
     const idx = ranges.indexOf(rangeKey(sFeaturedBanner))
     return idx < 0 ? 0 : idx
   }
-  
+
   // Check A-rank (featuredARanks) - use latest banner if appears on multiple
   let aRankBanner: Banner | undefined
   for (const b of banners) {
@@ -44,12 +45,12 @@ export function phaseOfName(banners: Banner[], name: string, ranges: string[]): 
       aRankBanner = b // Keep updating to get the latest
     }
   }
-  
+
   if (aRankBanner) {
     const idx = ranges.indexOf(rangeKey(aRankBanner))
     return idx < 0 ? 0 : idx
   }
-  
+
   return 0 // Default to first phase if not found
 }
 
@@ -170,24 +171,22 @@ export function calculateDisplayedCost(params: {
 }
 
 export function channelBreakdownParts(params: {
-  banners: Banner[]
   plan: PhasePlan
   phase: PhaseIndex
   channel: ChannelType
-  scenario: Scenario
-  inputs: PlannerInputs
-  selectedTargets: SelectedTargetInput[]
-  ranges: string[]
-  displayedTotal: number
-  checkRarity?: (name: string) => number
 }): RoundedBreakdownPart[] | null {
-  const { banners, plan, phase, channel, scenario, inputs, selectedTargets, ranges, displayedTotal, checkRarity } = params
-  const names = namesForPhaseChannel(banners, selectedTargets, ranges, phase, channel)
-  const breakdown = computeChannelBreakdown(phase, channel, plan, scenario, inputs, names, checkRarity)
-  if (!breakdown)
+  const { plan, phase, channel } = params
+  const p = plan.phases[phase]
+  if (!p)
     return null
-  const rawValues = breakdown.parts.map(p => p.value)
-  const sumRaw = Math.round(rawValues.reduce((a, b) => a + b, 0))
-  const rounded = roundToTarget(rawValues, displayedTotal > 0 ? displayedTotal : sumRaw)
-  return rounded.map((value, idx) => ({ value, kind: breakdown.parts[idx].kind }))
+
+  const items = p.itemDetails.filter(i => i.channel === channel)
+  if (items.length === 0)
+    return null
+
+  return items.map(item => ({
+    value: Math.round(item.cost),
+    kind: 'first',
+    met: item.funded,
+  }))
 }

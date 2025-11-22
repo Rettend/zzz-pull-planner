@@ -79,11 +79,9 @@ export function PlanOverview(props: PlanOverviewProps) {
   })
 
   const breakdowns = createMemo(() => {
-    const common = commonParams()
-    const costs = displayedCosts()
     return props.plan().phases.map((p, i) => ({
-      agent: channelBreakdownParts({ ...common, phase: i, channel: 'agent', displayedTotal: costs[i].agent }),
-      engine: channelBreakdownParts({ ...common, phase: i, channel: 'engine', displayedTotal: costs[i].engine }),
+      agent: channelBreakdownParts({ plan: props.plan(), phase: i, channel: 'agent' }),
+      engine: channelBreakdownParts({ plan: props.plan(), phase: i, channel: 'engine' }),
     }))
   })
 
@@ -217,9 +215,20 @@ export function PlanOverview(props: PlanOverviewProps) {
                 <BudgetBar
                   total={isStart() ? phase.startBudget : phase.endBudget}
                   segments={[
-                    { value: phase.agentCost, color: 'bg-emerald-600/70', label: 'Agents', title: 'Agents cost' },
-                    { value: isStart() ? phase.engineSpendStart : phase.engineSpendEnd, color: 'bg-sky-600/70', label: 'Engines', title: 'Engines spend this phase' },
-                    { value: isStart() ? phase.carryToNextPhaseStart : phase.carryToNextPhaseEnd, color: 'bg-zinc-700', label: 'Carry', title: 'Pulls carried to next phase' },
+                    ...phase.itemDetails.map(item => ({
+                      value: item.cost,
+                      color: item.funded
+                        ? (item.channel === 'agent' ? 'bg-emerald-600/70' : 'bg-sky-600/70')
+                        : 'bg-red-500/60',
+                      label: item.channel === 'agent' ? 'Agent' : 'Engine',
+                      title: `${item.name} (${item.funded ? 'Funded' : 'Unfunded'})`,
+                    })),
+                    {
+                      value: isStart() ? phase.carryToNextPhaseStart : phase.carryToNextPhaseEnd,
+                      color: 'bg-zinc-700',
+                      label: 'Carry',
+                      title: 'Pulls carried to next phase',
+                    },
                   ]}
                 />
 
