@@ -55,7 +55,7 @@ export function UIStoreProvider(props: ParentProps<{ accountId: string }>) {
   const storageKey = untrack(() => `ui:${props.accountId}`)
   const [local, setLocal] = makePersisted([baseLocal, setBaseLocal], {
     name: storageKey,
-    storage: window.localStorage,
+    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
     sync: storageSync,
   })
 

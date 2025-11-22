@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "vinxi dev --port 3101",
     "build": "bun --bun vinxi build",
-    "preview": "vinxi start",
+    "preview": "wrangler dev .output/server/index.mjs --assets .output/public",
     "check": "tsgo --noEmit --skipLibCheck -p tsconfig.json",
     "lint": "eslint . --fix",
     "l:push": "drizzle-kit push --config drizzle.config.local.ts",

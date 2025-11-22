@@ -157,8 +157,7 @@ export function PlanOverview(props: PlanOverviewProps) {
   }
 
   return (
-    <section class="p-4 border border-zinc-700 rounded-xl bg-zinc-800/50 space-y-4">
-      <h2 class="text-lg text-emerald-300 tracking-wide font-bold">Plan</h2>
+    <div class="space-y-4">
       <div class="gap-4 grid">
         <div class="text-sm text-zinc-300 flex items-center justify-between">
           <div>
@@ -334,6 +333,6 @@ export function PlanOverview(props: PlanOverviewProps) {
           </ul>
         </div>
       </div>
-    </section>
+    </div>
   )
 }

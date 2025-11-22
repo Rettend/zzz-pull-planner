@@ -99,7 +99,7 @@ export function TargetsStoreProvider(props: ParentProps & { accountId: string })
   const storageKey = untrack(() => `targets:${props.accountId}`)
   const [local, setLocal] = makePersisted([baseLocal, setBaseLocal], {
     name: storageKey,
-    storage: window.localStorage,
+    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
     sync: storageSync,
   })
 

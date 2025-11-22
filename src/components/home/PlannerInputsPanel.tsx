@@ -17,8 +17,7 @@ export function PlannerInputsPanel() {
   const ranges = createMemo(() => computePhaseRanges(activeBanners()))
 
   return (
-    <section class="p-4 border border-zinc-700 rounded-xl bg-zinc-800/50 space-y-4">
-      <h2 class="text-lg text-emerald-300 tracking-wide font-bold">Inputs</h2>
+    <div class="space-y-4">
       <div class="gap-3 grid grid-cols-2">
         <NumberField label="Pulls on hand P0" min={0} {...numberInput(inputs, actions.setPlannerInput, 'pullsOnHand', { min: 0 })} />
         <span />
@@ -88,6 +87,6 @@ export function PlannerInputsPanel() {
         </div>
         <div class="text-xs text-zinc-400">{describeLuckMode(luckMode())}</div>
       </div>
-    </section>
+    </div>
   )
 }

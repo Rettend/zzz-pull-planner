@@ -32,7 +32,7 @@ export function AccountsStoreProvider(props: ParentProps) {
 
   const [local, setLocal] = makePersisted([baseLocal, setBaseLocal], {
     name: 'accounts',
-    storage: window.localStorage,
+    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
     sync: storageSync,
   })
 
