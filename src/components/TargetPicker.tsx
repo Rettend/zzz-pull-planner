@@ -1,7 +1,7 @@
 import type { Component } from 'solid-js'
 import type { Banner, ChannelType } from '~/lib/constants'
 import type { TargetAggregate } from '~/stores/targets'
-import { createMemo, createSignal, For, Show } from 'solid-js'
+import { createEffect, createMemo, createSignal, For, onCleanup, Show } from 'solid-js'
 import { Portal } from 'solid-js/web'
 import { isBannerPast } from '~/lib/constants'
 import { computePlan, emptyPlan } from '~/lib/planner'
@@ -155,12 +155,23 @@ export const TargetPicker: Component = () => {
       setGhostPosition({ x: startX, y: startY })
 
       // Vibrate if supported
-      if (navigator.vibrate)
+      if (typeof navigator !== 'undefined' && navigator.vibrate)
         navigator.vibrate(50)
     }, 200) // 200ms long press
 
     setTouchTimeout(timeout)
   }
+
+  createEffect(() => {
+    if (dragActive()) {
+      const preventScroll = (e: TouchEvent) => {
+        if (e.cancelable)
+          e.preventDefault()
+      }
+      document.addEventListener('touchmove', preventScroll, { passive: false })
+      onCleanup(() => document.removeEventListener('touchmove', preventScroll))
+    }
+  })
 
   function handleTouchMove(e: TouchEvent) {
     const timeout = touchTimeout()
@@ -176,7 +187,6 @@ export const TargetPicker: Component = () => {
     }
 
     if (dragActive() && ghostPosition()) {
-      e.preventDefault() // Prevent scrolling
       const touch = e.touches[0]
       setGhostPosition({ x: touch.clientX, y: touch.clientY })
 
@@ -451,8 +461,7 @@ export const TargetPicker: Component = () => {
                     onTouchEnd={handleTouchEnd}
                     onContextMenu={e => e.preventDefault()}
                     style={{
-                      display: isDragged() && dragActive() && !ghostPosition() ? 'none' : undefined,
-                      opacity: isDragged() && dragActive() && ghostPosition() ? 0.5 : 1,
+                      display: isDragged() && dragActive() ? 'none' : undefined,
                     }}
                   >
                     <div class="relative">
