@@ -1,6 +1,6 @@
 import type { JSX } from 'solid-js'
 import type { PlannerInputs } from '~/lib/planner'
-import { For } from 'solid-js'
+import { createMemo, For } from 'solid-js'
 
 function pct(n: number, d: number): string {
   if (d <= 0)
@@ -26,13 +26,15 @@ export function BudgetBar(props: {
   total: number
   segments: { value: number, color: string, label: string, title?: string }[]
 }) {
+  const visible = createMemo(() => props.segments.filter(s => s.value > 0))
+
   return (
     <div class="space-y-1">
       <div class="border border-zinc-700 rounded bg-zinc-800 flex h-3 w-full overflow-hidden">
-        <For each={props.segments.filter(s => s.value > 0)}>
-          {s => (
+        <For each={visible()}>
+          {(s, i) => (
             <div
-              class={s.color}
+              class={`${s.color}  ${i() > 0 ? 'border-l border-black/40' : ''}  ${i() < visible().length - 1 ? 'border-r border-black/40' : ''} box-border`}
               style={{ width: pct(s.value, props.total) }}
               title={`${s.label}: ${Math.round(s.value)}${props.total ? ` (${pct(s.value, props.total)})` : ''}`}
             />
