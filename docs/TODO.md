@@ -1,6 +1,6 @@
 # TODO
 
-## FIX
+## FEAT
 
 - [ ] perf fix: accounts tab without unmounting?
 - [ ] vitest
@@ -15,6 +15,16 @@
 - [x] pull 1 and pull 10 buttons to quickly change available pulls and pity
 - [x] mindscape support with nice ui, maybe small + - buttons for targets
 - [x] planner should work for N phases, currently 2 phases are hardcoded, and even first banner is in the second phase
+
+## FIX
+
+- [ ] finish optimize for seo (webpagetest), solid meta, read guide
+- [ ] add to google console, sitemap, robots txt
+- [ ] add back off featured in cost calculator, maybe on hover. also update titles (native tooltips are old)
+- [ ] nicer input ui?
+- [ ] move pull simulator below input section
+- [x] move header links to right on mobile
+- [ ] each phase probability next to budget doesn't update based on pXX selected
 
 ## HELP
 
