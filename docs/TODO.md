@@ -2,6 +2,7 @@
 
 ## FEAT
 
+- [ ] history page with past banners, show rerun potential
 - [ ] nicer input ui?
 - [ ] perf fix: accounts tab without unmounting?
 - [ ] vitest

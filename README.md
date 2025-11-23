@@ -7,9 +7,10 @@ The site is available at [zzz.rettend.me](https://zzz.rettend.me/)
 ## Features
 
 - **Banner Planning**: View current and upcoming banners
-- **Target Prioritization**: Select and prioritize Agents and W-Engines you want to pull, supports both S and A ranks
-- **Multi-Account management**: Track resources and pity across multiple game accounts
-- **Probability-based calculation**: See your chances of obtaining targets using different safety floors
+- **Target Prioritization**: Select and prioritize Agents and W-Engines you want to pull
+- **Mindscape Support**: Supports just pulling for M0 or all the way to M6, and supports both S Ranks and A Ranks
+- **Multi-Account Management**: Track resources and pity across multiple accounts
+- **Probability-based Calculation**: See your chances of obtaining targets using different safety floors
 - **Calculation factors in**:
   - Available pulls and expected income during the banner's duration
   - Current pity for channels

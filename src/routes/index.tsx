@@ -113,14 +113,14 @@ export default function Home() {
       <div class="gap-6 grid lg:grid-cols-[1fr_2fr]">
         <div class="flex flex-col gap-6">
           <section class="p-4 border border-zinc-700 rounded-xl bg-zinc-800/50 space-y-4">
-            <h2 class="text-lg text-emerald-300 tracking-wide font-bold">Inputs</h2>
+            <h2 class="text-lg text-emerald-300 tracking-wide font-bold md:mb-4">Inputs</h2>
             <ClientOnly fallback={<div class="rounded-lg bg-zinc-800/50 h-96 animate-pulse" />}>
               <PlannerInputsPanel />
             </ClientOnly>
           </section>
 
           <section class="p-4 border border-zinc-700 rounded-xl bg-zinc-800/50 h-fit space-y-4">
-            <h2 class="text-lg text-emerald-300 tracking-wide font-bold">Pull Simulation</h2>
+            <h2 class="text-lg text-emerald-300 tracking-wide font-bold mb-2 md:mb-4">Pull Simulation</h2>
             <ClientOnly fallback={<div class="rounded-lg bg-zinc-800/50 h-24 animate-pulse" />}>
               <PullSimulationPanel
                 inputs={inputs}

@@ -1,3 +1,4 @@
+import { A } from '@solidjs/router'
 import { ExternalLink } from '~/components/ExternalLink'
 import { NavBar } from '~/components/NavBar'
 
@@ -7,7 +8,7 @@ export function Header() {
       <div class="mx-auto flex flex-row gap-4 max-w-7xl justify-between">
         {/* Left Column: Title + Made by + Socials */}
         <div class="flex flex-col gap-3 items-start md:flex-row md:gap-4 md:items-center">
-          <span class="text-xs text-zinc-500 tracking-0.2em uppercase">ZZZ Pull Planner</span>
+          <A href="/" class="text-xs text-zinc-500 tracking-0.2em uppercase transition-colors hover:text-emerald-300">ZZZ Pull Planner</A>
           <span class="text-zinc-700 hidden md:inline">|</span>
           <ExternalLink
             href="https://rettend.me"

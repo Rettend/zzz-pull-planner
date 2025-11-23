@@ -3,7 +3,7 @@ import { For } from 'solid-js'
 
 const NAV_ITEMS = [
   { href: '/', label: 'Home' },
-  { href: '/guide', label: 'Guide', disabled: true },
+  { href: '/guide', label: 'Guide' },
   { href: '/history', label: 'History', disabled: true },
   { href: '/about', label: 'About' },
 ]

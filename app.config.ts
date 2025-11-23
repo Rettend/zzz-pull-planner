@@ -9,6 +9,7 @@ export default defineConfig({
       routes: [
         '/404',  // does not work idk how to do it
         '/about',
+        '/guide',
         '/sitemap.xml',
       ],
     },
