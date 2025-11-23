@@ -80,6 +80,15 @@ export default function About() {
                 , license: MIT
               </div>
             </li>
+            <li class="flex gap-3 items-start">
+              <div>
+                I have a
+                {' '}
+                <ExternalLink href="https://discord.gg/FvVaUPhj3t" class="text-emerald-400 underline underline-offset-2">Discord</ExternalLink>
+                {' '}
+                server, any feedback is welcome!
+              </div>
+            </li>
           </ul>
         </section>
       </div>
