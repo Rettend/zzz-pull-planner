@@ -17,14 +17,6 @@
 - [x] mindscape support with nice ui, maybe small + - buttons for targets
 - [x] planner should work for N phases, currently 2 phases are hardcoded, and even first banner is in the second phase
 
-## FIX
-
-- [ ] finish optimize for seo (webpagetest), solid meta, read guide
-- [ ] add to google console, sitemap, robots txt
-- [x] add back off featured in cost calculator, maybe on hover. also update titles (native tooltips are old)
-- [x] move pull simulator below input section
-- [x] move header links to right on mobile
-
 ## HELP
 
 - [ ] prerender 404 page and show it for every not found route
