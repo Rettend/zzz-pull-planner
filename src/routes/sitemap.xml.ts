@@ -6,7 +6,9 @@ export function GET({ request }: APIEvent) {
   const origin = import.meta.env.PROD ? BASE_URL : url.origin
 
   const pages = [
-    '', // Home page
+    '',
+    'about',
+    'guide',
   ]
 
   const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
