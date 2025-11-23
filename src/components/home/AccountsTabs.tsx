@@ -89,11 +89,11 @@ export function AccountsTabs() {
         )}
       </For>
       <button
-        class="text-zinc-200 px-2 py-1 border border-zinc-700 rounded-md bg-zinc-900 hover:border-emerald-500/60"
+        class="group text-zinc-200 px-2 py-1 border border-zinc-700 rounded-md bg-zinc-900 transition-colors hover:border-emerald-500/60"
         onClick={onAddAccount}
         title="Add account"
       >
-        <i class="i-ph:plus-bold" />
+        <i class="i-ph:plus-bold transition-colors group-hover:text-emerald-300" />
       </button>
     </div>
   )

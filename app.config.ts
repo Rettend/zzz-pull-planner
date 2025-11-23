@@ -8,6 +8,7 @@ export default defineConfig({
     prerender: {
       routes: [
         '/404',  // does not work idk how to do it
+        '/about',
         '/sitemap.xml',
       ],
     },

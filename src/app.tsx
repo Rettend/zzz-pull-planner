@@ -3,6 +3,7 @@ import { Meta, MetaProvider, Title } from '@solidjs/meta'
 import { Router } from '@solidjs/router'
 import { FileRoutes } from '@solidjs/start/router'
 import { Suspense } from 'solid-js'
+import { Header } from './components/Header'
 import { RootStoreProvider } from './stores'
 import '@unocss/reset/tailwind.css'
 import 'virtual:uno.css'
@@ -24,7 +25,12 @@ export default function App() {
           <Meta name="twitter:description" content="Plan pulls in Zenless Zone Zero. Calculate probabilities, manage resources, and track your pity." />
 
           <Suspense>
-            <RootStoreProvider>{props.children}</RootStoreProvider>
+            <RootStoreProvider>
+              <div class="text-emerald-100 font-mono p-6 min-h-screen relative isolate">
+                <Header />
+                {props.children}
+              </div>
+            </RootStoreProvider>
           </Suspense>
         </MetaProvider>
       )}

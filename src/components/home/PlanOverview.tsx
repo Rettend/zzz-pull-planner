@@ -397,7 +397,7 @@ export function PlanOverview(props: PlanOverviewProps) {
                   <i class="i-ph:plus-circle-fill" />
                   Estimated A-Ranks
                 </h3>
-                <div class="border border-zinc-800/50 rounded-xl bg-zinc-900/20 flex-1">
+                <div class="flex-1">
                   <div class="gap-3 grid grid-cols-[repeat(auto-fill,minmax(90px,1fr))]">
                     <For each={estimatedARanks()}>
                       {item => (
