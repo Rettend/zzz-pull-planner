@@ -11,6 +11,10 @@ export interface PlannerInputs {
   guaranteedAgentStart: boolean
   pityEngineStart: number
   guaranteedEngineStart: boolean
+  pityAgentStartA?: number
+  guaranteedAgentStartA?: boolean
+  pityEngineStartA?: number
+  guaranteedEngineStartA?: boolean
   luckMode?: 'best' | 'realistic' | 'worst'
 }
 
@@ -40,6 +44,10 @@ export interface PhaseResult {
   agentGuaranteedEnd: boolean
   enginePityEnd: number
   engineGuaranteedEnd: boolean
+  agentPityEndA: number
+  agentGuaranteedEndA: boolean
+  enginePityEndA: number
+  engineGuaranteedEndA: boolean
 
   boughtAgents: number
   boughtEngines: number
@@ -215,13 +223,17 @@ export function computePlan(
   // Helper to calculate reserve needed for future phases
   function reserveForFuture(
     currentPhaseIndex: number,
-    currentAgentState: { pity: number, guaranteed: boolean },
-    currentEngineState: { pity: number, guaranteed: boolean },
+    currentAgentStateS: { pity: number, guaranteed: boolean },
+    currentEngineStateS: { pity: number, guaranteed: boolean },
+    currentAgentStateA: { pity: number, guaranteed: boolean },
+    currentEngineStateA: { pity: number, guaranteed: boolean },
     limitGlobalIndexExclusive: number = Number.POSITIVE_INFINITY,
   ): number {
     let reserve = 0
-    const stAgent = { ...currentAgentState }
-    const stEngine = { ...currentEngineState }
+    const stAgentS = { ...currentAgentStateS }
+    const stEngineS = { ...currentEngineStateS }
+    const stAgentA = { ...currentAgentStateA }
+    const stEngineA = { ...currentEngineStateA }
 
     // Iterate through all future phases
     for (let i = currentPhaseIndex + 1; i < targetsByPhase.length; i++) {
@@ -236,20 +248,28 @@ export function computePlan(
 
         if (rarity === 4) {
           // A-Rank cost
-          const state = t.channel === 'agent' ? stAgent : stEngine
+          const state = t.channel === 'agent' ? stAgentA : stEngineA
           c = costToFeaturedARank(t.channel, scenario, luckMode, state.pity, state.guaranteed)
+          // Update A-rank state
+          if (t.channel === 'agent') {
+             stAgentA.pity = 0
+             stAgentA.guaranteed = false
+          } else {
+             stEngineA.pity = 0
+             stEngineA.guaranteed = false
+          }
         }
         else {
           // S-Rank cost
           if (t.channel === 'agent') {
-            c = costToFeaturedAgent(stAgent.pity, stAgent.guaranteed, qAgent, scenario)
-            stAgent.pity = 0
-            stAgent.guaranteed = false
+            c = costToFeaturedAgent(stAgentS.pity, stAgentS.guaranteed, qAgent, scenario)
+            stAgentS.pity = 0
+            stAgentS.guaranteed = false
           }
           else {
-            c = costToFeaturedEngine(stEngine.pity, stEngine.guaranteed, qEngine, scenario)
-            stEngine.pity = 0
-            stEngine.guaranteed = false
+            c = costToFeaturedEngine(stEngineS.pity, stEngineS.guaranteed, qEngine, scenario)
+            stEngineS.pity = 0
+            stEngineS.guaranteed = false
           }
         }
 
@@ -262,12 +282,17 @@ export function computePlan(
   function phaseSuccessProb(
     budget: number,
     targetsInPhase: SelectedTargetInput[],
-    agentStateIn: { pity: number, guaranteed: boolean },
-    engineStateIn: { pity: number, guaranteed: boolean },
+    agentStateInS: { pity: number, guaranteed: boolean },
+    engineStateInS: { pity: number, guaranteed: boolean },
+    agentStateInA: { pity: number, guaranteed: boolean },
+    engineStateInA: { pity: number, guaranteed: boolean },
   ): number {
     let pmfTotal: number[] = [1]
-    const agentState = { ...agentStateIn }
-    const engineState = { ...engineStateIn }
+    const agentStateS = { ...agentStateInS }
+    const engineStateS = { ...engineStateInS }
+    const agentStateA = { ...agentStateInA }
+    const engineStateA = { ...engineStateInA }
+
     for (const t of targetsInPhase) {
       const rarity = rarityMap.get(t.name) ?? 5
       let pmf: number[]
@@ -278,7 +303,7 @@ export function computePlan(
         const winRate = 0.25
         let pSuccess = winRate
 
-        const state = t.channel === 'agent' ? agentState : engineState
+        const state = t.channel === 'agent' ? agentStateA : engineStateA
         if (state.guaranteed) {
           pSuccess = 0.5
         }
@@ -290,20 +315,29 @@ export function computePlan(
 
         const { hazards } = getARankHazard(baseRate)
         pmf = geometricCostPmf(hazards, pSuccess, 0.999, state.pity)
+        
+        // Update state
+        if (t.channel === 'agent') {
+            agentStateA.pity = 0
+            agentStateA.guaranteed = false
+        } else {
+            engineStateA.pity = 0
+            engineStateA.guaranteed = false
+        }
       }
       else {
         // S-Rank Logic
         pmf = t.channel === 'agent'
-          ? featuredCostPmf('agent', agentState.pity, agentState.guaranteed, qAgent)
-          : featuredCostPmf('engine', engineState.pity, engineState.guaranteed, qEngine)
+          ? featuredCostPmf('agent', agentStateS.pity, agentStateS.guaranteed, qAgent)
+          : featuredCostPmf('engine', engineStateS.pity, engineStateS.guaranteed, qEngine)
 
         if (t.channel === 'agent') {
-          agentState.pity = 0
-          agentState.guaranteed = false
+          agentStateS.pity = 0
+          agentStateS.guaranteed = false
         }
         else {
-          engineState.pity = 0
-          engineState.guaranteed = false
+          engineStateS.pity = 0
+          engineStateS.guaranteed = false
         }
       }
 
@@ -316,8 +350,10 @@ export function computePlan(
   }
 
   const phases: PhaseResult[] = []
-  let currentAgentState = { pity: clamp(pityAgentStart, 0, 89), guaranteed: Boolean(guaranteedAgentStart) }
-  let currentEngineState = { pity: clamp(pityEngineStart, 0, 79), guaranteed: Boolean(guaranteedEngineStart) }
+  let currentAgentStateS = { pity: clamp(pityAgentStart, 0, 89), guaranteed: Boolean(guaranteedAgentStart) }
+  let currentEngineStateS = { pity: clamp(pityEngineStart, 0, 79), guaranteed: Boolean(guaranteedEngineStart) }
+  let currentAgentStateA = { pity: clamp(inputs.pityAgentStartA ?? 0, 0, 9), guaranteed: Boolean(inputs.guaranteedAgentStartA) }
+  let currentEngineStateA = { pity: clamp(inputs.pityEngineStartA ?? 0, 0, 9), guaranteed: Boolean(inputs.guaranteedEngineStartA) }
 
   // Track budget flow
   // Start of Phase 0 is pullsOnHand.
@@ -347,8 +383,10 @@ export function computePlan(
     let remainingStart = startBudget
     let remainingEnd = endBudget
 
-    const agentStateSim = { ...currentAgentState }
-    const engineStateSim = { ...currentEngineState }
+    const agentStateSimS = { ...currentAgentStateS }
+    const engineStateSimS = { ...currentEngineStateS }
+    const agentStateSimA = { ...currentAgentStateA }
+    const engineStateSimA = { ...currentEngineStateA }
 
     let spentAgents = 0
     let spentEngines = 0
@@ -365,25 +403,36 @@ export function computePlan(
 
       let cost = 0
       if (rarity === 4) {
-        const state = isAgent ? agentStateSim : engineStateSim
+        const state = isAgent ? agentStateSimA : engineStateSimA
         cost = costToFeaturedARank(t.channel, scenario, luckMode, state.pity, state.guaranteed)
       }
       else {
         cost = isAgent
-          ? costToFeaturedAgent(agentStateSim.pity, agentStateSim.guaranteed, qAgent, scenario)
-          : costToFeaturedEngine(engineStateSim.pity, engineStateSim.guaranteed, qEngine, scenario)
+          ? costToFeaturedAgent(agentStateSimS.pity, agentStateSimS.guaranteed, qAgent, scenario)
+          : costToFeaturedEngine(engineStateSimS.pity, engineStateSimS.guaranteed, qEngine, scenario)
       }
 
-      const nextAgentState = { ...agentStateSim }
-      const nextEngineState = { ...engineStateSim }
+      const nextAgentStateS = { ...agentStateSimS }
+      const nextEngineStateS = { ...engineStateSimS }
+      const nextAgentStateA = { ...agentStateSimA }
+      const nextEngineStateA = { ...engineStateSimA }
 
-      if (isAgent) {
-        nextAgentState.pity = 0
-        nextAgentState.guaranteed = false
-      }
-      else {
-        nextEngineState.pity = 0
-        nextEngineState.guaranteed = false
+      if (rarity === 4) {
+        if (isAgent) {
+          nextAgentStateA.pity = 0
+          nextAgentStateA.guaranteed = false
+        } else {
+          nextEngineStateA.pity = 0
+          nextEngineStateA.guaranteed = false
+        }
+      } else {
+        if (isAgent) {
+          nextAgentStateS.pity = 0
+          nextAgentStateS.guaranteed = false
+        } else {
+          nextEngineStateS.pity = 0
+          nextEngineStateS.guaranteed = false
+        }
       }
 
       const currentGlobalIndex = globalIndexByName[t.name] ?? Number.POSITIVE_INFINITY
@@ -391,7 +440,12 @@ export function computePlan(
       const newRemainingEnd = remainingEnd - cost
       const newRemainingStart = remainingStart - cost
 
-      const reserveAfter = reserveForFuture(i, nextAgentState, nextEngineState, currentGlobalIndex)
+      const reserveAfter = reserveForFuture(
+        i, 
+        nextAgentStateS, nextEngineStateS, 
+        nextAgentStateA, nextEngineStateA, 
+        currentGlobalIndex
+      )
 
       const affordableEnd = newRemainingEnd >= reserveAfter
       const affordableStart = newRemainingStart >= reserveAfter
@@ -420,20 +474,22 @@ export function computePlan(
         shortfallStart = Math.max(shortfallStart ?? 0, reserveAfter - newRemainingStart)
       }
 
-      if (isAgent) {
-        agentStateSim.pity = nextAgentState.pity
-        agentStateSim.guaranteed = nextAgentState.guaranteed
-        if (rarity === 4) {
-          agentStateSim.pity = 0
-          agentStateSim.guaranteed = false
+      // Update the Sim states for the next target in this phase
+      if (rarity === 4) {
+        if (isAgent) {
+          agentStateSimA.pity = nextAgentStateA.pity
+          agentStateSimA.guaranteed = nextAgentStateA.guaranteed
+        } else {
+          engineStateSimA.pity = nextEngineStateA.pity
+          engineStateSimA.guaranteed = nextEngineStateA.guaranteed
         }
-      }
-      else {
-        engineStateSim.pity = nextEngineState.pity
-        engineStateSim.guaranteed = nextEngineState.guaranteed
-        if (rarity === 4) {
-          engineStateSim.pity = 0
-          engineStateSim.guaranteed = false
+      } else {
+        if (isAgent) {
+          agentStateSimS.pity = nextAgentStateS.pity
+          agentStateSimS.guaranteed = nextAgentStateS.guaranteed
+        } else {
+          engineStateSimS.pity = nextEngineStateS.pity
+          engineStateSimS.guaranteed = nextEngineStateS.guaranteed
         }
       }
 
@@ -446,16 +502,24 @@ export function computePlan(
       })
     }
 
-    const reserveNext = reserveForFuture(i, agentStateSim, engineStateSim, Number.POSITIVE_INFINITY)
+    const reserveNext = reserveForFuture(
+      i, 
+      agentStateSimS, engineStateSimS, 
+      agentStateSimA, engineStateSimA, 
+      Number.POSITIVE_INFINITY
+    )
 
     const totalPhaseAgents = targets.filter(t => t.channel === 'agent').length
     const totalPhaseEngines = targets.filter(t => t.channel === 'engine').length
 
-    const successProbStart = phaseSuccessProb(startBudget, targets, currentAgentState, currentEngineState)
-    const successProbEnd = phaseSuccessProb(endBudget, targets, currentAgentState, currentEngineState)
+    const successProbStart = phaseSuccessProb(startBudget, targets, currentAgentStateS, currentEngineStateS, currentAgentStateA, currentEngineStateA)
+    const successProbEnd = phaseSuccessProb(endBudget, targets, currentAgentStateS, currentEngineStateS, currentAgentStateA, currentEngineStateA)
 
-    currentAgentState = agentStateSim
-    currentEngineState = engineStateSim
+    currentAgentStateS = agentStateSimS
+    currentEngineStateS = engineStateSimS
+    currentAgentStateA = agentStateSimA
+    currentEngineStateA = engineStateSimA
+    
     previousPhaseCarryEnd = Math.max(0, remainingEnd)
 
     totalAgentsGot += boughtAgents
@@ -482,10 +546,14 @@ export function computePlan(
       successProbEnd,
       shortfallStart: Math.max(0, shortfallStart ?? 0),
       shortfallEnd: Math.max(0, shortfallEnd ?? 0),
-      agentPityEnd: agentStateSim.pity,
-      agentGuaranteedEnd: agentStateSim.guaranteed,
-      enginePityEnd: engineStateSim.pity,
-      engineGuaranteedEnd: engineStateSim.guaranteed,
+      agentPityEnd: agentStateSimS.pity,
+      agentGuaranteedEnd: agentStateSimS.guaranteed,
+      enginePityEnd: engineStateSimS.pity,
+      engineGuaranteedEnd: engineStateSimS.guaranteed,
+      agentPityEndA: agentStateSimA.pity,
+      agentGuaranteedEndA: agentStateSimA.guaranteed,
+      enginePityEndA: engineStateSimA.pity,
+      engineGuaranteedEndA: engineStateSimA.guaranteed,
       boughtAgents,
       boughtEngines,
       boughtNames,

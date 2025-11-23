@@ -6,6 +6,7 @@
       "name": "zzz-pull-planner",
       "dependencies": {
         "@solid-primitives/storage": "^4.3.3",
+        "@solidjs/meta": "^0.29.4",
         "@solidjs/router": "^0.15.4",
         "@solidjs/start": "^1.2.0",
         "@typescript/native-preview": "^7.0.0-dev.20251120.1",
@@ -496,6 +497,8 @@
     "@solid-primitives/storage": ["@solid-primitives/storage@4.3.3", "", { "dependencies": { "@solid-primitives/utils": "^6.3.2" }, "peerDependencies": { "@tauri-apps/plugin-store": "*", "solid-js": "^1.6.12" }, "optionalPeers": ["@tauri-apps/plugin-store"] }, "sha512-ACbNwMZ1s8VAvld6EUXkDkX/US3IhtlPLxg6+B2s9MwNUugwdd51I98LPEaHrdLpqPmyzqgoJe0TxEFlf3Dqrw=="],
 
     "@solid-primitives/utils": ["@solid-primitives/utils@6.3.2", "", { "peerDependencies": { "solid-js": "^1.6.12" } }, "sha512-hZ/M/qr25QOCcwDPOHtGjxTD8w2mNyVAYvcfgwzBHq2RwNqHNdDNsMZYap20+ruRwW4A3Cdkczyoz0TSxLCAPQ=="],
+
+    "@solidjs/meta": ["@solidjs/meta@0.29.4", "", { "peerDependencies": { "solid-js": ">=1.8.4" } }, "sha512-zdIWBGpR9zGx1p1bzIPqF5Gs+Ks/BH8R6fWhmUa/dcK1L2rUC8BAcZJzNRYBQv74kScf1TSOs0EY//Vd/I0V8g=="],
 
     "@solidjs/router": ["@solidjs/router@0.15.4", "", { "peerDependencies": { "solid-js": "^1.8.6" } }, "sha512-WOpgg9a9T638cR+5FGbFi/IV4l2FpmBs1GpIMSPa0Ce9vyJN7Wts+X2PqMf9IYn0zUj2MlSJtm1gp7/HI/n5TQ=="],
 

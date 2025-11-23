@@ -69,9 +69,10 @@ export function PlanOverview(props: PlanOverviewProps) {
   })
 
   const breakdowns = createMemo(() => {
+    const common = commonParams()
     return props.plan().phases.map((p, i) => ({
-      agent: channelBreakdownParts({ plan: props.plan(), phase: i, channel: 'agent' }),
-      engine: channelBreakdownParts({ plan: props.plan(), phase: i, channel: 'engine' }),
+      agent: channelBreakdownParts({ plan: props.plan(), phase: i, channel: 'agent', inputs: common.inputs, scenario: common.scenario, checkRarity: common.checkRarity }),
+      engine: channelBreakdownParts({ plan: props.plan(), phase: i, channel: 'engine', inputs: common.inputs, scenario: common.scenario, checkRarity: common.checkRarity }),
     }))
   })
 
@@ -255,7 +256,7 @@ export function PlanOverview(props: PlanOverviewProps) {
                     label="Agents cost"
                     value={costs()?.agent ?? 0}
                     affordable={isStart() ? phase.canAffordAgentStart : phase.canAffordAgentEnd}
-                    pityLabel={index() === 0 ? `-${Math.max(0, props.inputs().pityAgentStart)}` : ''}
+                    pityLabel={index() === 0 ? `-${Math.max(0, props.planningMode() === 's-rank' ? props.inputs().pityAgentStart : (props.inputs().pityAgentStartA ?? 0))}` : ''}
                     explanation={breakdown()?.agent ?? null}
                     title="Aggregated cost to secure selected Agents"
                   />
@@ -263,7 +264,7 @@ export function PlanOverview(props: PlanOverviewProps) {
                     label="Engines cost"
                     value={costs()?.engine ?? 0}
                     affordable={isStart() ? phase.canAffordEngineStart : phase.canAffordEngineEnd}
-                    pityLabel={index() === 0 ? `-${Math.max(0, props.inputs().pityEngineStart)}` : ''}
+                    pityLabel={index() === 0 ? `-${Math.max(0, props.planningMode() === 's-rank' ? props.inputs().pityEngineStart : (props.inputs().pityEngineStartA ?? 0))}` : ''}
                     explanation={breakdown()?.engine ?? null}
                     title="Aggregated cost to secure selected Engines"
                   />

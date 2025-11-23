@@ -28,7 +28,7 @@ export function ChannelCostRow(props: ChannelCostRowProps) {
               <For each={props.explanation}>
                 {part => (
                   <span
-                    class={`${part.met ? (props.label.includes('Engine') ? 'text-sky-300' : 'text-emerald-300') : 'text-red-300'}`}
+                    class={`${part.met ? (part.kind === 'off' ? 'text-amber-300' : (props.label.includes('Engine') ? 'text-sky-300' : 'text-emerald-300')) : 'text-red-300'}`}
                     title={part.kind === 'first' ? 'First S cost at selected risk' : 'Reserve for off-feature at selected risk'}
                   >
                     +

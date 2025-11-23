@@ -2,6 +2,7 @@
 
 ## FEAT
 
+- [ ] nicer input ui?
 - [ ] perf fix: accounts tab without unmounting?
 - [ ] vitest
 - [ ] redesign plan and what this means ui to be more visual, and response for mobile (hard)
@@ -20,11 +21,9 @@
 
 - [ ] finish optimize for seo (webpagetest), solid meta, read guide
 - [ ] add to google console, sitemap, robots txt
-- [ ] add back off featured in cost calculator, maybe on hover. also update titles (native tooltips are old)
-- [ ] nicer input ui?
+- [x] add back off featured in cost calculator, maybe on hover. also update titles (native tooltips are old)
 - [x] move pull simulator below input section
 - [x] move header links to right on mobile
-- [ ] each phase probability next to budget doesn't update based on pXX selected
 
 ## HELP
 

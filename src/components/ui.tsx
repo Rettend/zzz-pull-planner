@@ -129,11 +129,11 @@ export function StatRow(props: {
 }
 
 export type NumberKeys = {
-  [K in keyof PlannerInputs]-?: PlannerInputs[K] extends number ? K : never
+  [K in keyof PlannerInputs]-?: PlannerInputs[K] extends number | undefined ? K : never
 }[keyof PlannerInputs]
 
 export type BoolKeys = {
-  [K in keyof PlannerInputs]-?: PlannerInputs[K] extends boolean ? K : never
+  [K in keyof PlannerInputs]-?: PlannerInputs[K] extends boolean | undefined ? K : never
 }[keyof PlannerInputs]
 
 export function numberInput<K extends NumberKeys & keyof PlannerInputs>(
@@ -143,7 +143,7 @@ export function numberInput<K extends NumberKeys & keyof PlannerInputs>(
   options?: { min?: number, max?: number },
 ) {
   return {
-    value: String(inputs()[key] ?? ''),
+    value: String(inputs()[key] ?? 0),
     onInput: (e: InputEvent & { currentTarget: HTMLInputElement }) => {
       const v = e.currentTarget.value.trim()
       if (v === '') {

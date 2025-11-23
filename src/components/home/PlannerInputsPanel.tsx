@@ -44,17 +44,41 @@ export function PlannerInputsPanel() {
           label="Agent pity"
           min={0}
           max={ui.local.planningMode === 's-rank' ? 89 : 9}
-          {...numberInput(inputs, actions.setPlannerInput, 'pityAgentStart', { min: 0, max: ui.local.planningMode === 's-rank' ? 89 : 9 })}
+          {...numberInput(
+            inputs,
+            actions.setPlannerInput,
+            ui.local.planningMode === 's-rank' ? 'pityAgentStart' : 'pityAgentStartA',
+            { min: 0, max: ui.local.planningMode === 's-rank' ? 89 : 9 },
+          )}
         />
-        <CheckboxField label="Agent guaranteed" {...boolInput(inputs, actions.setPlannerInput, 'guaranteedAgentStart')} />
+        <CheckboxField
+          label="Agent guaranteed"
+          {...boolInput(
+            inputs,
+            actions.setPlannerInput,
+            ui.local.planningMode === 's-rank' ? 'guaranteedAgentStart' : 'guaranteedAgentStartA',
+          )}
+        />
 
         <NumberField
           label="W-Engine pity"
           min={0}
           max={ui.local.planningMode === 's-rank' ? 79 : 9}
-          {...numberInput(inputs, actions.setPlannerInput, 'pityEngineStart', { min: 0, max: ui.local.planningMode === 's-rank' ? 79 : 9 })}
+          {...numberInput(
+            inputs,
+            actions.setPlannerInput,
+            ui.local.planningMode === 's-rank' ? 'pityEngineStart' : 'pityEngineStartA',
+            { min: 0, max: ui.local.planningMode === 's-rank' ? 79 : 9 },
+          )}
         />
-        <CheckboxField label="W-Engine guaranteed" {...boolInput(inputs, actions.setPlannerInput, 'guaranteedEngineStart')} />
+        <CheckboxField
+          label="W-Engine guaranteed"
+          {...boolInput(
+            inputs,
+            actions.setPlannerInput,
+            ui.local.planningMode === 's-rank' ? 'guaranteedEngineStart' : 'guaranteedEngineStartA',
+          )}
+        />
       </div>
 
       <div class="my-2 bg-zinc-700/50 col-span-1 h-px sm:col-span-2" />

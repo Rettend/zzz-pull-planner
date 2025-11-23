@@ -174,8 +174,11 @@ export function channelBreakdownParts(params: {
   plan: PhasePlan
   phase: PhaseIndex
   channel: ChannelType
+  inputs: PlannerInputs
+  scenario: Scenario
+  checkRarity?: (name: string) => number
 }): RoundedBreakdownPart[] | null {
-  const { plan, phase, channel } = params
+  const { plan, phase, channel, inputs, scenario, checkRarity } = params
   const p = plan.phases[phase]
   if (!p)
     return null
@@ -184,9 +187,38 @@ export function channelBreakdownParts(params: {
   if (items.length === 0)
     return null
 
-  return items.map(item => ({
-    value: Math.round(item.cost),
-    kind: 'first',
-    met: item.funded,
-  }))
+  const names = items.map(i => i.name)
+  const breakdown = computeChannelBreakdown(phase, channel, plan, scenario, inputs, names, checkRarity)
+
+  if (!breakdown)
+    return null
+
+  const result: RoundedBreakdownPart[] = []
+  let itemIdx = 0
+
+  for (let i = 0; i < breakdown.parts.length; i++) {
+    const part = breakdown.parts[i]
+    const item = items[itemIdx]
+
+    if (!item)
+      break
+
+    result.push({
+      value: Math.round(part.value),
+      kind: part.kind,
+      met: item.funded,
+    })
+
+    const nextPart = breakdown.parts[i + 1]
+    if (part.kind === 'off') {
+      itemIdx++
+    }
+    else if (part.kind === 'first') {
+      if (!nextPart || nextPart.kind !== 'off') {
+        itemIdx++
+      }
+    }
+  }
+
+  return result
 }

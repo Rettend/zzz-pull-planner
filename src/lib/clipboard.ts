@@ -54,7 +54,8 @@ export function formatPlanCopyText(
 
     lines.push(`- Agents cost: ${formatNumber(phase.agentCost)} (${phase.canAffordAgentStart ? 'affordable at start' : 'not met at start'} / ${phase.canAffordAgentEnd ? 'affordable at end' : 'not met at end'})`)
     {
-      const br = computeChannelBreakdown(idx, 'agent', plan, scenario, inputs, undefined, checkRarity)
+      const names = phase.itemDetails.filter(i => i.channel === 'agent').map(i => i.name)
+      const br = computeChannelBreakdown(idx, 'agent', plan, scenario, inputs, names, checkRarity)
       if (br) {
         const raw = br.parts.map(p => p.value)
         const disp = Math.round(phase.agentCost)
@@ -67,7 +68,8 @@ export function formatPlanCopyText(
 
     lines.push(`- Engines cost: ${formatNumber(phase.engineCost)} (${phase.canAffordEngineStart ? 'affordable at start' : 'not met at start'} / ${phase.canAffordEngineEnd ? 'affordable at end' : 'not met at end'})`)
     {
-      const br = computeChannelBreakdown(idx, 'engine', plan, scenario, inputs, undefined, checkRarity)
+      const names = phase.itemDetails.filter(i => i.channel === 'engine').map(i => i.name)
+      const br = computeChannelBreakdown(idx, 'engine', plan, scenario, inputs, names, checkRarity)
       if (br) {
         const raw = br.parts.map(p => p.value)
         const disp = Math.round(phase.engineCost)

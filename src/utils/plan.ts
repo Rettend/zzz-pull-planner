@@ -44,18 +44,24 @@ export function computeChannelBreakdown(
   const { hazards: sHazards } = getDefaultHazard(channel)
   const { hazards: aHazards } = getARankHazard(channel === 'agent' ? 0.094 : 0.150)
 
-  let pity = 0
-  let guaranteed = false
+  let pityS = 0
+  let guaranteedS = false
+  let pityA = 0
+  let guaranteedA = false
 
   if (phase === 0) {
-    pity = channel === 'agent' ? inputs.pityAgentStart : inputs.pityEngineStart
-    guaranteed = channel === 'agent' ? inputs.guaranteedAgentStart : inputs.guaranteedEngineStart
+    pityS = channel === 'agent' ? inputs.pityAgentStart : inputs.pityEngineStart
+    guaranteedS = channel === 'agent' ? inputs.guaranteedAgentStart : inputs.guaranteedEngineStart
+    pityA = (channel === 'agent' ? inputs.pityAgentStartA : inputs.pityEngineStartA) ?? 0
+    guaranteedA = (channel === 'agent' ? inputs.guaranteedAgentStartA : inputs.guaranteedEngineStartA) ?? false
   }
   else {
     const prevPhase = plan.phases[phase - 1]
     if (prevPhase) {
-      pity = channel === 'agent' ? prevPhase.agentPityEnd : prevPhase.enginePityEnd
-      guaranteed = channel === 'agent' ? prevPhase.agentGuaranteedEnd : prevPhase.engineGuaranteedEnd
+      pityS = channel === 'agent' ? prevPhase.agentPityEnd : prevPhase.enginePityEnd
+      guaranteedS = channel === 'agent' ? prevPhase.agentGuaranteedEnd : prevPhase.engineGuaranteedEnd
+      pityA = channel === 'agent' ? prevPhase.agentPityEndA : prevPhase.enginePityEndA
+      guaranteedA = channel === 'agent' ? prevPhase.agentGuaranteedEndA : prevPhase.engineGuaranteedEndA
     }
   }
 
@@ -65,11 +71,10 @@ export function computeChannelBreakdown(
 
     if (rarity === 4) {
       // A-Rank Logic
-      // const baseRate = channel === 'agent' ? 0.094 : 0.150 // Unused
       const winRate = 0.25
       let pSuccess = winRate
-      
-      if (guaranteed) {
+
+      if (guaranteedA) {
         pSuccess = 0.5
       }
 
@@ -78,34 +83,41 @@ export function computeChannelBreakdown(
       if (luckMode === 'worst')
         pSuccess = 0.10
 
-      // For A-ranks, we don't track pity in the same granular way for the breakdown
-      // We assume 0 pity start for each A-rank calculation as per planner logic
-      const pmf = geometricCostPmf(aHazards, pSuccess, 0.999, Math.max(0, pity))
-      const cost = costAtScenario(scenario, costStatsFromPmf(pmf))
-      parts.push({ value: cost, kind: 'first' })
-      
+      const pmf = geometricCostPmf(aHazards, pSuccess, 0.999, Math.max(0, pityA))
+      const total = costAtScenario(scenario, costStatsFromPmf(pmf))
+
+      const h1 = hazardWithPityOffset(aHazards, Math.max(0, pityA))
+      const pmfFirst = firstSPmfFromHazard(h1)
+      const first = costAtScenario(scenario, costStatsFromPmf(pmfFirst))
+
+      const off = Math.max(0, total - first)
+
+      parts.push({ value: first, kind: 'first' })
+      if (off > 0)
+        parts.push({ value: off, kind: 'off' })
+
       // Reset for next
-      pity = 0
-      guaranteed = false
+      pityA = 0
+      guaranteedA = false
     }
     else {
       // S-Rank Logic
-      const h1 = hazardWithPityOffset(sHazards, Math.max(0, pity))
+      const h1 = hazardWithPityOffset(sHazards, Math.max(0, pityS))
       const first = costAtScenario(scenario, costStatsFromPmf(firstSPmfFromHazard(h1)))
-      const total = guaranteed
+      const total = guaranteedS
         ? first
-        : costAtScenario(scenario, costStatsFromPmf(featuredCostPmf(channel, Math.max(0, pity), false, q, sHazards)))
+        : costAtScenario(scenario, costStatsFromPmf(featuredCostPmf(channel, Math.max(0, pityS), false, q, sHazards)))
       const off = Math.max(0, total - first)
       parts.push({ value: first, kind: 'first' })
       if (off > 0)
         parts.push({ value: off, kind: 'off' })
 
-      pity = 0
-      guaranteed = false
+      pityS = 0
+      guaranteedS = false
     }
   }
   const total = parts.reduce((a, b) => a + b.value, 0)
-  return { pity: Math.max(0, pity), parts, total }
+  return { pity: Math.max(0, pityS), parts, total }
 }
 
 export function roundToTarget(values: number[], target: number): number[] {
