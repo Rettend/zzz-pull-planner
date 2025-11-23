@@ -21,7 +21,7 @@ export function ChannelCostRow(props: ChannelCostRowProps) {
       title={props.title}
       explain={props.explanation
         ? (
-            <span>
+            <span class="flex flex-wrap gap-x-1">
               <span class="text-zinc-400" title="First S (green) is the p-selected cost to hit the next S. Off-feature reserve (yellow) is extra budget kept for the possibility you lose the 50-50 at this risk level; it is not always spent.">
                 {props.pityLabel}
               </span>
