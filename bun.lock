@@ -12,6 +12,7 @@
         "@typescript/native-preview": "^7.0.0-dev.20251120.1",
         "cheerio": "^1.1.2",
         "drizzle-orm": "^0.44.7",
+        "html-to-image": "^1.11.13",
         "solid-js": "^1.9.10",
         "uuid": "^13.0.0",
         "vinxi": "^0.5.8",

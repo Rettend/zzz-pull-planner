@@ -3,10 +3,13 @@ import type { Banner } from '~/lib/constants'
 import type { SelectedTargetInput } from '~/lib/plan-view'
 import type { PhasePlan, PlannerInputs, Scenario } from '~/lib/planner'
 import type { TargetAggregate } from '~/stores/targets'
-import { createMemo, createSignal, For, Show } from 'solid-js'
+import { toPng } from 'html-to-image'
+import { createEffect, createMemo, createSignal, For, Show } from 'solid-js'
+import { ShareablePlanCard } from '~/components/ShareablePlanCard'
 import { Badge, BudgetBar, StatRow } from '~/components/ui'
 import { formatPlanCopyText } from '~/lib/clipboard'
 import { buildPhaseRanges, calculateDisplayedCost, channelBreakdownParts, createFundedMindscapes } from '~/lib/plan-view'
+import { useAccountsStore } from '~/stores/accounts'
 import { useGame } from '~/stores/game'
 import { TargetIconCard } from '../TargetIconCard'
 import { ChannelCostRow } from './ChannelCostRow'
@@ -26,6 +29,28 @@ interface PlanOverviewProps {
 
 export function PlanOverview(props: PlanOverviewProps) {
   const [copied, setCopied] = createSignal(false)
+  const [showShareModal, setShowShareModal] = createSignal(false)
+  const [generating, setGenerating] = createSignal(false)
+
+  const [accountsLocal] = useAccountsStore()
+  const accountName = createMemo(() => {
+    return accountsLocal.accounts.find(a => a.id === accountsLocal.currentId)?.name || 'Proxy'
+  })
+
+  const [shareConfig, setShareConfig] = createSignal({
+    showAccountName: true,
+    showProbability: true,
+    showScenario: true,
+  })
+
+  createEffect(() => {
+    if (showShareModal()) {
+      document.body.style.overflow = 'hidden'
+    }
+    else {
+      document.body.style.overflow = ''
+    }
+  })
 
   const phaseRanges = createMemo(() => buildPhaseRanges(props.banners()))
   const totals = createMemo(() => props.plan().totals)
@@ -173,6 +198,42 @@ export function PlanOverview(props: PlanOverviewProps) {
     }
   }
 
+  async function onShare() {
+    setShowShareModal(true)
+  }
+
+  async function generateImage(action: 'download' | 'copy') {
+    const node = document.getElementById('shareable-plan-card')
+    if (!node)
+      return
+
+    setGenerating(true)
+    try {
+      const dataUrl = await toPng(node, { cacheBust: true, pixelRatio: 2 })
+
+      if (action === 'download') {
+        const link = document.createElement('a')
+        link.download = `zzz-pull-plan-${new Date().toISOString().split('T')[0]}.png`
+        link.href = dataUrl
+        link.click()
+      }
+      else {
+        const blob = await (await fetch(dataUrl)).blob()
+        await navigator.clipboard.write([
+          new ClipboardItem({ 'image/png': blob }),
+        ])
+        setCopied(true)
+        setTimeout(() => setCopied(false), 1500)
+      }
+    }
+    catch (err) {
+      console.error('Failed to generate image', err)
+    }
+    finally {
+      setGenerating(false)
+    }
+  }
+
   return (
     <div class="space-y-4">
       <div class="gap-4 grid">
@@ -202,8 +263,117 @@ export function PlanOverview(props: PlanOverviewProps) {
               <i class={`size-4 ${copied() ? 'i-ph:check-bold' : 'i-ph:clipboard-text-duotone'}`} />
               Copy
             </button>
+            <button
+              class="text-emerald-300 px-3 py-1.5 border border-zinc-700 rounded-md bg-emerald-900/30 inline-flex gap-2 transition-colors items-center hover:bg-emerald-900/50"
+              onClick={onShare}
+              title="Create a shareable image of your plan"
+            >
+              <i class="i-ph:share-network-duotone size-4" />
+              Share
+            </button>
           </div>
         </div>
+
+        <Show when={showShareModal()}>
+          <div class="p-4 bg-black/80 flex items-center inset-0 justify-center fixed z-50 backdrop-blur-sm" onClick={() => setShowShareModal(false)}>
+            <div class="border border-zinc-700 rounded-xl bg-zinc-900 flex flex-col max-h-[90vh] max-w-5xl w-full shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+              <div class="p-4 border-b border-zinc-800 bg-zinc-900/50 flex items-center justify-between">
+                <h3 class="text-lg text-white font-bold flex gap-2 items-center">
+                  <i class="i-ph:image-duotone text-emerald-400" />
+                  Share Plan
+                </h3>
+                <button
+                  onClick={() => setShowShareModal(false)}
+                  class="text-zinc-400 p-1 rounded-md transition-colors hover:text-white hover:bg-zinc-800"
+                >
+                  <i class="i-ph:x-bold size-5" />
+                </button>
+              </div>
+
+              <div class="p-6 bg-zinc-950/50 flex flex-1 gap-6 overflow-auto">
+                {/* Preview Area */}
+                <div class="p-4 border border-zinc-800/50 rounded-lg bg-zinc-900/50 flex flex-1 min-h-[400px] items-center justify-center overflow-auto">
+                  <div class="origin-top scale-[0.6] transition-transform lg:scale-[0.85] md:scale-[0.7]">
+                    <ShareablePlanCard
+                      plan={props.plan()}
+                      inputs={props.inputs()}
+                      scenario={props.scenario()}
+                      selectedTargets={props.selectedTargets()}
+                      groupedTargets={props.groupedTargets()}
+                      accountName={accountName()}
+                      showAccountName={shareConfig().showAccountName}
+                      showProbability={shareConfig().showProbability}
+                      showScenario={shareConfig().showScenario}
+                    />
+                  </div>
+                </div>
+
+                {/* Controls Sidebar */}
+                <div class="shrink-0 w-72 space-y-6">
+                  <div class="space-y-4">
+                    <h4 class="text-sm text-zinc-400 tracking-wider font-medium uppercase">Configuration</h4>
+
+                    <div class="space-y-3">
+                      <label class="p-3 border border-zinc-800 rounded-lg bg-zinc-900/50 flex gap-3 cursor-pointer transition-colors items-center hover:bg-zinc-800/50">
+                        <input
+                          type="checkbox"
+                          checked={shareConfig().showAccountName}
+                          onChange={e => setShareConfig(prev => ({ ...prev, showAccountName: e.currentTarget.checked }))}
+                          class="text-emerald-500 border-zinc-600 rounded bg-zinc-800 focus:ring-emerald-500/20"
+                        />
+                        <span class="text-sm text-zinc-200">Show Account Name</span>
+                      </label>
+
+                      <label class="p-3 border border-zinc-800 rounded-lg bg-zinc-900/50 flex gap-3 cursor-pointer transition-colors items-center hover:bg-zinc-800/50">
+                        <input
+                          type="checkbox"
+                          checked={shareConfig().showProbability}
+                          onChange={e => setShareConfig(prev => ({ ...prev, showProbability: e.currentTarget.checked }))}
+                          class="text-emerald-500 border-zinc-600 rounded bg-zinc-800 focus:ring-emerald-500/20"
+                        />
+                        <span class="text-sm text-zinc-200">Show Stats</span>
+                      </label>
+
+                      <label class="p-3 border border-zinc-800 rounded-lg bg-zinc-900/50 flex gap-3 cursor-pointer transition-colors items-center hover:bg-zinc-800/50">
+                        <input
+                          type="checkbox"
+                          checked={shareConfig().showScenario}
+                          onChange={e => setShareConfig(prev => ({ ...prev, showScenario: e.currentTarget.checked }))}
+                          class="text-emerald-500 border-zinc-600 rounded bg-zinc-800 focus:ring-emerald-500/20"
+                        />
+                        <span class="text-sm text-zinc-200">Show Scenario</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div class="pt-4 border-t border-zinc-800 space-y-3">
+                    <button
+                      onClick={() => generateImage('download')}
+                      disabled={generating()}
+                      class="text-white font-medium px-4 py-2.5 rounded-lg bg-emerald-600 flex gap-2 w-full shadow-emerald-900/20 shadow-lg transition-all items-center justify-center hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Show when={generating()} fallback={<i class="i-ph:download-simple-bold size-5" />}>
+                        <i class="i-ph:spinner-gap-bold size-5 animate-spin" />
+                      </Show>
+                      Download Image
+                    </button>
+
+                    <button
+                      onClick={() => generateImage('copy')}
+                      disabled={generating()}
+                      class="text-zinc-200 font-medium px-4 py-2.5 border border-zinc-700 rounded-lg bg-zinc-800 flex gap-2 w-full transition-all items-center justify-center hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Show when={copied()} fallback={<i class="i-ph:copy-simple-bold size-5" />}>
+                        <i class="i-ph:check-bold text-emerald-400 size-5" />
+                      </Show>
+                      {copied() ? 'Copied!' : 'Copy to Clipboard'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Show>
 
         <For each={props.plan().phases}>
           {(phase, index) => {
