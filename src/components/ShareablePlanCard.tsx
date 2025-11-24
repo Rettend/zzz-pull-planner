@@ -22,6 +22,11 @@ export function ShareablePlanCard(props: ShareablePlanCardProps) {
   const totals = createMemo(() => props.plan.totals)
   const fundedMindscapes = createMemo(() => createFundedMindscapes(props.plan))
 
+  const totalPulls = createMemo(() => {
+    const income = (props.inputs.incomes || []).reduce((a, b) => a + b, 0)
+    return props.inputs.pullsOnHand + income
+  })
+
   const securedItems = createMemo(() => {
     const list: { name: string, level: number, channel: 'agent' | 'engine' }[] = []
     const funded = fundedMindscapes()
@@ -70,7 +75,8 @@ export function ShareablePlanCard(props: ShareablePlanCardProps) {
           <div class="space-y-1">
             <h1 class="text-3xl text-white tracking-tight font-bold flex gap-3 items-center">
               <i class="i-ph:strategy-duotone text-emerald-400" />
-              {props.showAccountName ? props.accountName : 'Proxy\'s Pull Plan'}
+              {props.showAccountName ? props.accountName : 'Proxy'}
+              's Pull Plan
             </h1>
             <Show when={props.showScenario}>
               <div class="text-lg text-emerald-400/80 font-medium flex gap-2 items-center">
@@ -87,7 +93,7 @@ export function ShareablePlanCard(props: ShareablePlanCardProps) {
             <div class="flex gap-6">
               <div class="text-right">
                 <div class="text-sm text-zinc-400 tracking-wider font-medium uppercase">Total Pulls</div>
-                <div class="text-2xl text-white font-bold">{Math.round(props.inputs.pullsOnHand)}</div>
+                <div class="text-2xl text-white font-bold">{Math.round(totalPulls())}</div>
               </div>
               <div class="text-right">
                 <div class="text-sm text-zinc-400 tracking-wider font-medium uppercase">Remaining</div>
@@ -104,7 +110,7 @@ export function ShareablePlanCard(props: ShareablePlanCardProps) {
             <div class="space-y-4">
               <h3 class="text-lg text-emerald-400 font-medium pb-2 border-b border-emerald-900/30 flex gap-2 items-center">
                 <i class="i-ph:check-circle-fill" />
-                Secured Targets
+                Funded Targets
                 <span class="text-sm text-emerald-400/60 font-normal ml-auto">
                   {totals().agentsGot}
                   {' '}
@@ -194,6 +200,12 @@ export function ShareablePlanCard(props: ShareablePlanCardProps) {
         <div class="mt-4 pt-6 border-t border-zinc-800 flex items-end justify-between">
           <div class="text-sm text-zinc-500">
             zzz.rettend.me
+          </div>
+          <div class="flex gap-2">
+            {/* Decorative dots */}
+            <div class="rounded-full bg-emerald-500/20 h-2 w-2" />
+            <div class="rounded-full bg-emerald-500/40 h-2 w-2" />
+            <div class="rounded-full bg-emerald-500/60 h-2 w-2" />
           </div>
         </div>
       </div>

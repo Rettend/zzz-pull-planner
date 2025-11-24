@@ -264,7 +264,7 @@ export function PlanOverview(props: PlanOverviewProps) {
               Copy
             </button>
             <button
-              class="text-emerald-300 px-3 py-1.5 border border-zinc-700 rounded-md bg-emerald-900/30 inline-flex gap-2 transition-colors items-center hover:bg-emerald-900/50"
+              class="text-emerald-300 px-3 py-1.5 border border-emerald-800 rounded-md bg-emerald-900/30 inline-flex gap-2 transition-colors items-center hover:bg-emerald-900/50"
               onClick={onShare}
               title="Create a shareable image of your plan"
             >
@@ -290,7 +290,7 @@ export function PlanOverview(props: PlanOverviewProps) {
                 </button>
               </div>
 
-              <div class="p-6 bg-zinc-950/50 flex flex-1 gap-6 overflow-auto">
+              <div class="p-6 bg-zinc-950/50 flex flex-1 flex-col gap-6 overflow-auto lg:flex-row">
                 {/* Preview Area */}
                 <div class="p-4 border border-zinc-800/50 rounded-lg bg-zinc-900/50 flex flex-1 min-h-[400px] items-center justify-center overflow-auto">
                   <div class="origin-top scale-[0.6] transition-transform lg:scale-[0.85] md:scale-[0.7]">
@@ -309,7 +309,7 @@ export function PlanOverview(props: PlanOverviewProps) {
                 </div>
 
                 {/* Controls Sidebar */}
-                <div class="shrink-0 w-72 space-y-6">
+                <div class="shrink-0 w-full space-y-6 lg:w-72">
                   <div class="space-y-4">
                     <h4 class="text-sm text-zinc-400 tracking-wider font-medium uppercase">Configuration</h4>
 
@@ -474,7 +474,7 @@ export function PlanOverview(props: PlanOverviewProps) {
                   <div class="flex items-center justify-between">
                     <h3 class="text-emerald-400 font-medium flex gap-2 items-center">
                       <i class="i-ph:check-circle-fill" />
-                      Secured
+                      Funded
                     </h3>
                     <span class="text-xs text-zinc-500">
                       {totals().agentsGot}
