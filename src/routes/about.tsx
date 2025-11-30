@@ -14,7 +14,7 @@ export default function About() {
             ZZZ Pull Planner
           </h1>
           <p class="text-lg text-zinc-400 leading-relaxed mx-auto max-w-2xl">
-            Planner tool for Zenless Zone Zero
+            Planner, Tracker, and Calculator for Zenless Zone Zero
           </p>
         </section>
 

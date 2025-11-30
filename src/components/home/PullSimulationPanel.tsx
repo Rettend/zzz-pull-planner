@@ -2,6 +2,7 @@ import type { Accessor } from 'solid-js'
 import type { SelectedTargetInput } from '~/lib/plan-view'
 import type { PlannerInputs } from '~/lib/planner'
 import { Show } from 'solid-js'
+import { useGame } from '~/stores/game'
 import { formatSlug } from '~/utils'
 
 interface PullSimulationPanelProps {
@@ -12,6 +13,15 @@ interface PullSimulationPanelProps {
 }
 
 export function PullSimulationPanel(props: PullSimulationPanelProps) {
+  const { resolveAgent, resolveWEngine } = useGame()
+
+  const getDisplayName = (target: SelectedTargetInput) => {
+    if (target.channel === 'agent') {
+      return resolveAgent(target.name)?.name ?? formatSlug(target.name)
+    }
+    return resolveWEngine(target.name)?.name ?? formatSlug(target.name)
+  }
+
   return (
     <div class="space-y-4">
       <div class="flex gap-2 items-center">
@@ -49,7 +59,7 @@ export function PullSimulationPanel(props: PullSimulationPanelProps) {
             <span>
               Next up:
               {' '}
-              {formatSlug(target().name)}
+              {getDisplayName(target())}
               {' '}
               (
               {target().channel === 'agent' ? 'Agent' : 'W-Engine'}

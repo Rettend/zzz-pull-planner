@@ -57,8 +57,10 @@ export const TargetIconCard: Component<{
     return rarity === 5 ? ICON_ITEM_RANK_S : ICON_ITEM_RANK_A
   })
 
+  const displayName = createMemo(() => (agent() ?? wengine())?.name ?? props.name)
+
   return (
-    <div class={`group border-2 ${borderClass()} rounded-xl bg-zinc-800/50 h-100px shadow-sm transition-colors relative ${cursorClass()}  ${props.context === 'selector' && !props.selected ? 'hover:border-emerald-500/70' : ''}  ${props.class ?? ''}`} style={{ width: props.showMindscapeControls ? `${CARD_WITH_PANEL_WIDTH}px` : `${CARD_WIDTH}px` }} title={props.name}>
+    <div class={`group border-2 ${borderClass()} rounded-xl bg-zinc-800/50 h-100px shadow-sm transition-colors relative ${cursorClass()}  ${props.context === 'selector' && !props.selected ? 'hover:border-emerald-500/70' : ''}  ${props.class ?? ''}`} style={{ width: props.showMindscapeControls ? `${CARD_WITH_PANEL_WIDTH}px` : `${CARD_WIDTH}px` }} title={displayName()}>
       <div class="rounded-inherit inset-0 absolute overflow-hidden">
         <div class="h-full inset-0 absolute" style={{ width: props.showMindscapeControls ? `${CARD_WIDTH}px` : '100%' }}>
           <img src={bg() || ''} alt={props.name} class={`h-full w-full inset-0 absolute object-cover ${props.muted ? 'grayscale brightness-75 opacity-80' : ''}`} />

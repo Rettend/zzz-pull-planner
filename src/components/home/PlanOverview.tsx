@@ -187,7 +187,18 @@ export function PlanOverview(props: PlanOverviewProps) {
 
   async function onCopy() {
     try {
-      const text = formatPlanCopyText(props.inputs(), props.scenario(), props.selectedTargets(), props.plan(), commonParams().checkRarity)
+      const text = formatPlanCopyText(
+        props.inputs(),
+        props.scenario(),
+        props.selectedTargets(),
+        props.plan(),
+        commonParams().checkRarity,
+        (name, channel) => {
+          if (channel === 'agent')
+            return game.resolveAgent(name)?.name ?? name
+          return game.resolveWEngine(name)?.name ?? name
+        },
+      )
       if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText)
         await navigator.clipboard.writeText(text)
       setCopied(true)
@@ -404,14 +415,19 @@ export function PlanOverview(props: PlanOverviewProps) {
                 <BudgetBar
                   total={isStart() ? phase.startBudget : phase.endBudget}
                   segments={[
-                    ...phase.itemDetails.map(item => ({
-                      value: item.cost,
-                      color: item.funded
-                        ? (item.channel === 'agent' ? 'bg-emerald-600/70' : 'bg-sky-600/70')
-                        : 'bg-red-500/60',
-                      label: item.channel === 'agent' ? 'Agent' : 'Engine',
-                      title: `${item.name} (${item.funded ? 'Funded' : 'Unfunded'})`,
-                    })),
+                    ...phase.itemDetails.map((item) => {
+                      const displayName = item.channel === 'agent'
+                        ? (game.resolveAgent(item.name)?.name ?? item.name)
+                        : (game.resolveWEngine(item.name)?.name ?? item.name)
+                      return {
+                        value: item.cost,
+                        color: item.funded
+                          ? (item.channel === 'agent' ? 'bg-emerald-600/70' : 'bg-sky-600/70')
+                          : 'bg-red-500/60',
+                        label: item.channel === 'agent' ? 'Agent' : 'Engine',
+                        title: `${displayName} (${item.funded ? 'Funded' : 'Unfunded'})`,
+                      }
+                    }),
                     {
                       value: isStart() ? phase.carryToNextPhaseStart : phase.carryToNextPhaseEnd,
                       color: 'bg-zinc-700',

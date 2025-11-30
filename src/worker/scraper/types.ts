@@ -10,6 +10,7 @@ export interface ScrapedBanner {
 
 export interface ScrapedTarget {
   name: string
+  nickname: string | null
   alias: string | null
   iconUrl: string | null
   rarity: number // 5 = S, 4 = A, 3 = B

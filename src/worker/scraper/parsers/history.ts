@@ -69,9 +69,12 @@ export function parseHistoryPage(html: string, type: 'agent' | 'engine'): Scrape
           rarity = 3
         }
 
+        const nickname = card.find('.card-label').text().trim() || null
+
         if (targetName) {
           targets.push({
             name: targetName,
+            nickname,
             alias: null,
             iconUrl: img,
             rarity,

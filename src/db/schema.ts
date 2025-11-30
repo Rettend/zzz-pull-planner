@@ -15,6 +15,7 @@ export const banners = sqliteTable('banners', {
 export const targets = sqliteTable('targets', {
   id: text('id').primaryKey(), // normalized name (e.g., "yidhari")
   displayName: text('display_name').notNull(),
+  nickname: text('nickname'),
   rarity: integer('rarity').notNull(), // 5 = S, 4 = A
   type: text('type', { enum: ['agent', 'engine'] }).notNull(),
   attribute: text('attribute'),
