@@ -57,10 +57,17 @@ export function ShareablePlanCard(props: ShareablePlanCardProps) {
     return list
   })
 
+  const overallProbability = createMemo(() => {
+    const phases = props.plan.phases
+    if (phases.length === 0)
+      return 0
+    return phases[phases.length - 1].successProbEnd ?? 0
+  })
+
   return (
     <div
       id="shareable-plan-card"
-      class="text-zinc-100 font-sans p-8 bg-zinc-950 w-[800px] relative overflow-hidden"
+      class="text-zinc-100 font-sans p-8 bg-zinc-950 w-[600px] relative overflow-hidden md:w-[800px]"
       style={{
         'background-image': 'radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.15) 0%, rgba(24, 24, 27, 0) 50%)',
       }}
@@ -71,19 +78,15 @@ export function ShareablePlanCard(props: ShareablePlanCardProps) {
 
       <div class="relative z-10 space-y-8">
         {/* Header */}
-        <div class="flex items-start justify-between">
+        <div class="flex gap-2 items-start justify-between">
           <div class="space-y-1">
             <h1 class="text-3xl text-white tracking-tight font-bold flex gap-3 items-center">
-              <i class="i-ph:strategy-duotone text-emerald-400" />
-              {props.showAccountName ? props.accountName : 'Proxy'}
-              's Pull Plan
+              {props.showAccountName ? `${props.accountName}'s Pull Plan` : 'Pull Plan'}
             </h1>
             <Show when={props.showScenario}>
               <div class="text-lg text-emerald-400/80 font-medium flex gap-2 items-center">
-                <i class="i-ph:calendar-check-duotone" />
+                <i class="i-ph:play-duotone text-xl" />
                 {props.scenario}
-                {' '}
-                Scenario
               </div>
             </Show>
           </div>
@@ -92,12 +95,19 @@ export function ShareablePlanCard(props: ShareablePlanCardProps) {
           <Show when={props.showProbability}>
             <div class="flex gap-6">
               <div class="text-right">
-                <div class="text-sm text-zinc-400 tracking-wider font-medium uppercase">Total Pulls</div>
+                <div class="text-sm text-zinc-400 tracking-wider font-medium whitespace-nowrap uppercase">Total Pulls</div>
                 <div class="text-2xl text-white font-bold">{Math.round(totalPulls())}</div>
               </div>
               <div class="text-right">
                 <div class="text-sm text-zinc-400 tracking-wider font-medium uppercase">Remaining</div>
                 <div class="text-2xl text-emerald-300 font-bold">{Math.round(totals().pullsLeftEnd)}</div>
+              </div>
+              <div class="text-right">
+                <div class="text-sm text-zinc-400 tracking-wider font-medium uppercase">Probability</div>
+                <div class="text-2xl text-emerald-300 font-bold">
+                  {(overallProbability() * 100).toFixed(1)}
+                  %
+                </div>
               </div>
             </div>
           </Show>
@@ -109,8 +119,8 @@ export function ShareablePlanCard(props: ShareablePlanCardProps) {
           <Show when={securedItems().length > 0}>
             <div class="space-y-4">
               <h3 class="text-lg text-emerald-400 font-medium pb-2 border-b border-emerald-900/30 flex gap-2 items-center">
-                <i class="i-ph:check-circle-fill" />
-                Funded Targets
+                <i class="i-ph:check-square-duotone" />
+                Funded
                 <span class="text-sm text-emerald-400/60 font-normal ml-auto">
                   {totals().agentsGot}
                   {' '}
@@ -149,8 +159,8 @@ export function ShareablePlanCard(props: ShareablePlanCardProps) {
           <Show when={missingItems().length > 0}>
             <div class="space-y-4">
               <h3 class="text-lg text-red-400 font-medium pb-2 border-b border-red-900/30 flex gap-2 items-center">
-                <i class="i-ph:warning-circle-fill" />
-                Missing Targets
+                <i class="i-ph:warning-duotone" />
+                Missing
               </h3>
               <div class="flex flex-wrap gap-4">
                 <For each={missingItems()}>
