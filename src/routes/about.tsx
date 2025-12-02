@@ -1,11 +1,19 @@
-import { Meta, Title } from '@solidjs/meta'
+import { Link, Meta, Title } from '@solidjs/meta'
 import { ExternalLink } from '~/components/ExternalLink'
 
 export default function About() {
   return (
     <main class="text-emerald-100 font-mono">
-      <Title>About - ZZZ Pull Planner</Title>
-      <Meta name="description" content="Learn more about the ZZZ Pull Planner, a tool for planning your Zenless Zone Zero pulls." />
+      <Title>About - ZZZ Pull Planner & Tracker</Title>
+      <Meta name="description" content="Learn more about ZZZ Pull Planner, a tool for planning your Zenless Zone Zero pulls. It's automatically updated and can calculate your chances." />
+      <Link rel="canonical" href="https://zzz.rettend.me/about" />
+
+      <Meta property="og:title" content="About - ZZZ Pull Planner & Tracker" />
+      <Meta property="og:description" content="Learn more about ZZZ Pull Planner, a tool for planning your Zenless Zone Zero pulls. It's automatically updated and can calculate your chances." />
+      <Meta property="og:url" content="https://zzz.rettend.me/about" />
+
+      <Meta name="twitter:title" content="About - ZZZ Pull Planner & Tracker" />
+      <Meta name="twitter:description" content="Learn more about ZZZ Pull Planner, a tool for planning your Zenless Zone Zero pulls. It's automatically updated and can calculate your chances." />
 
       <div class="mx-auto pb-12 max-w-3xl relative space-y-12">
         {/* Title Section */}

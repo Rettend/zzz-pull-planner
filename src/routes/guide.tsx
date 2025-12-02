@@ -1,10 +1,18 @@
-import { Meta, Title } from '@solidjs/meta'
+import { Link, Meta, Title } from '@solidjs/meta'
 
 export default function Guide() {
   return (
     <main class="text-emerald-100 font-mono">
-      <Title>Guide - ZZZ Pull Planner</Title>
-      <Meta name="description" content="How to use the ZZZ Pull Planner to create your pull strategy." />
+      <Title>Guide - ZZZ Pull Planner & Tracker</Title>
+      <Meta name="description" content="How to use the ZZZ Pull Planner to create your pull strategy. Learn about priority lists, luck settings, and safety floors for probability calculations." />
+      <Link rel="canonical" href="https://zzz.rettend.me/guide" />
+
+      <Meta property="og:title" content="Guide - ZZZ Pull Planner & Tracker" />
+      <Meta property="og:description" content="How to use the ZZZ Pull Planner to create your pull strategy. Learn about priority lists, luck settings, and safety floors for probability calculations." />
+      <Meta property="og:url" content="https://zzz.rettend.me/guide" />
+
+      <Meta name="twitter:title" content="Guide - ZZZ Pull Planner & Tracker" />
+      <Meta name="twitter:description" content="How to use the ZZZ Pull Planner to create your pull strategy. Learn about priority lists, luck settings, and safety floors for probability calculations." />
 
       <div class="mx-auto pb-12 max-w-3xl relative space-y-12">
         <section class="py-12 text-center flex flex-col gap-4">
