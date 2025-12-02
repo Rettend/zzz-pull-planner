@@ -119,7 +119,7 @@ export const getGameData = query(async (): Promise<GameData> => {
         // Always add agent if not exists, or update if needed
         if (!data.agents[target.id]) {
           data.agents[target.id] = {
-            name: target.displayName,
+            name: target.nickname || target.displayName,
             rarity: target.rarity,
             attribute: target.attribute ?? undefined,
             specialty: target.specialty ?? undefined,
@@ -130,7 +130,7 @@ export const getGameData = query(async (): Promise<GameData> => {
       else {
         if (!data.wEngines[target.id]) {
           data.wEngines[target.id] = {
-            name: target.displayName,
+            name: target.nickname || target.displayName,
             rarity: target.rarity,
             specialty: target.specialty ?? undefined,
             icon: target.iconPath ?? undefined,

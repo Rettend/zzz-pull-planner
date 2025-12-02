@@ -49,7 +49,12 @@ export async function scrapeBanners(db: any, r2?: R2Bucket, force = false) {
     }
     else {
       // Check if we have missing attribute/specialty for any target in a version
+      const now = Date.now() / 1000
       for (const banner of allBanners) {
+        // Skip past banners
+        if (banner.endUtc < now)
+          continue
+
         if (!versionsToFetch.has(banner.version)) {
           for (const target of banner.featured) {
             const targetId = normalizeName(target.name)
@@ -120,10 +125,25 @@ export async function scrapeBanners(db: any, r2?: R2Bucket, force = false) {
           updatedAt: Math.floor(Date.now() / 1000), // Always update timestamp (seconds)
         }
 
-        bannersToUpsert.push(bannerData)
-        if (!existingBanner)
+        let needsUpdate = false
+        if (!existingBanner) {
           addedCount++
-        else updatedCount++
+          needsUpdate = true
+        }
+        else if (
+          existingBanner.title !== bannerData.title
+          || existingBanner.channelType !== bannerData.channelType
+          || existingBanner.startUtc !== bannerData.startUtc
+          || existingBanner.endUtc !== bannerData.endUtc
+          || existingBanner.version !== bannerData.version
+        ) {
+          updatedCount++
+          needsUpdate = true
+        }
+
+        if (needsUpdate) {
+          bannersToUpsert.push(bannerData)
+        }
 
         for (const [index, target] of banner.featured.entries()) {
           const targetId = normalizeName(target.name)
@@ -170,6 +190,7 @@ export async function scrapeBanners(db: any, r2?: R2Bucket, force = false) {
           targetsToUpsert.push({
             id: targetId,
             displayName: target.name,
+            nickname: target.nickname,
             rarity,
             type: banner.channelType,
             attribute,
@@ -211,13 +232,32 @@ export async function scrapeBanners(db: any, r2?: R2Bucket, force = false) {
       }
     }
 
-    console.log(`Upserting ${targetsToUpsert.length} targets...`)
+    console.log(`Found ${targetsToUpsert.length} targets...`)
     // Deduplicate targets (same target can appear in multiple banners)
     const uniqueTargets = Array.from(new Map(targetsToUpsert.map(t => [t.id, t])).values())
 
-    for (let i = 0; i < uniqueTargets.length; i += DB_CHUNK_SIZE) {
+    // Filter out unchanged targets
+    const targetsToReallyUpsert = uniqueTargets.filter((t) => {
+      const existing = existingTargetsMap.get(t.id)
+      if (!existing)
+        return true
+      return (
+        existing.displayName !== t.displayName
+        || existing.nickname !== t.nickname
+        || existing.rarity !== t.rarity
+        || existing.type !== t.type
+        || existing.attribute !== t.attribute
+        || existing.specialty !== t.specialty
+        || existing.iconPath !== t.iconPath
+      )
+    })
+
+    console.log(`Upserting ${targetsToReallyUpsert.length} targets (filtered from ${uniqueTargets.length})...`)
+
+    for (let i = 0; i < targetsToReallyUpsert.length; i += DB_CHUNK_SIZE) {
       try {
-        await db.insert(targets).values(uniqueTargets.slice(i, i + DB_CHUNK_SIZE)).onConflictDoUpdate({ target: targets.id, set: {
+        await db.insert(targets).values(targetsToReallyUpsert.slice(i, i + DB_CHUNK_SIZE)).onConflictDoUpdate({ target: targets.id, set: {
+          nickname: sql`excluded.nickname`,
           rarity: sql`excluded.rarity`,
           attribute: sql`excluded.attribute`,
           specialty: sql`excluded.specialty`,

@@ -57,6 +57,7 @@ export function BudgetBar(props: {
 
 export function NumberField(props: {
   label: string
+  label2?: string
   min?: number
   max?: number
   step?: number
@@ -64,30 +65,24 @@ export function NumberField(props: {
   onInput: (e: InputEvent & { currentTarget: HTMLInputElement }) => void
 }) {
   return (
-    <label class="space-y-1">
-      <div class="text-xs text-zinc-400">{props.label}</div>
+    <label class="group p-3 border border-zinc-800 rounded-lg bg-zinc-900/50 flex gap-3 cursor-pointer transition-colors items-center hover:bg-zinc-800/10">
       <input
-        class="px-3 py-2 border border-zinc-700 rounded-md bg-zinc-900 w-full"
-        type="number"
-        min={props.min}
-        max={props.max}
-        step={props.step}
+        class="px-2 py-1.5 text-center border border-zinc-700 rounded-md bg-zinc-900 w-16 tabular-nums"
+        type="text"
+        inputMode="numeric"
+        pattern="[0-9]*"
         value={props.value}
         onInput={e => props.onInput(e)}
       />
-    </label>
-  )
-}
-
-export function CheckboxField(props: {
-  label: string
-  checked: boolean
-  onChange: (e: Event & { currentTarget: HTMLInputElement }) => void
-}) {
-  return (
-    <label class="flex gap-2 items-center justify-center lg:justify-start">
-      <input type="checkbox" class="accent-emerald-400 size-4" checked={props.checked} onChange={e => props.onChange(e)} />
-      <span class="text-xs text-zinc-400">{props.label}</span>
+      <span class="text-xs text-zinc-400 transition-colors group-hover:text-zinc-300">
+        <span>{props.label}</span>
+        {props.label2 && (
+          <span class="whitespace-nowrap">
+            {' '}
+            {props.label2}
+          </span>
+        )}
+      </span>
     </label>
   )
 }
@@ -136,6 +131,35 @@ export type BoolKeys = {
   [K in keyof PlannerInputs]-?: PlannerInputs[K] extends boolean | undefined ? K : never
 }[keyof PlannerInputs]
 
+/**
+ * Sanitizes a number input, enforcing min/max and handling empty values.
+ * Returns the sanitized number value.
+ */
+export function sanitizeNumberInput(
+  e: InputEvent & { currentTarget: HTMLInputElement },
+  options?: { min?: number, max?: number },
+): number {
+  const raw = e.currentTarget.value
+  const digitsOnly = raw.replace(/\D/g, '')
+
+  // If user deleted everything, treat as 0 (or min if set)
+  if (digitsOnly === '') {
+    const minVal = options?.min !== undefined ? Math.max(0, options.min) : 0
+    e.currentTarget.value = String(minVal)
+    return minVal
+  }
+
+  let n = Number(digitsOnly)
+  if (options?.min !== undefined)
+    n = Math.max(options.min, n)
+  if (options?.max !== undefined)
+    n = Math.min(options.max, n)
+
+  // Update displayed value to match clamped value
+  e.currentTarget.value = String(n)
+  return n
+}
+
 export function numberInput<K extends NumberKeys & keyof PlannerInputs>(
   inputs: () => PlannerInputs,
   setPlannerInput: (key: K, value: PlannerInputs[K]) => void,
@@ -145,19 +169,8 @@ export function numberInput<K extends NumberKeys & keyof PlannerInputs>(
   return {
     value: String(inputs()[key] ?? 0),
     onInput: (e: InputEvent & { currentTarget: HTMLInputElement }) => {
-      const v = e.currentTarget.value.trim()
-      if (v === '') {
-        setPlannerInput(key, 0)
-        return
-      }
-      let n = Number(v)
-      if (!Number.isNaN(n)) {
-        if (options?.min !== undefined)
-          n = Math.max(options.min, n)
-        if (options?.max !== undefined)
-          n = Math.min(options.max, n)
-        setPlannerInput(key, n)
-      }
+      const n = sanitizeNumberInput(e, options)
+      setPlannerInput(key, n)
     },
   }
 }
@@ -169,8 +182,8 @@ export function boolInput<K extends BoolKeys & keyof PlannerInputs>(
 ) {
   return {
     checked: Boolean(inputs()[key]),
-    onChange: (e: Event & { currentTarget: HTMLInputElement }) => {
-      setPlannerInput(key, e.currentTarget.checked)
+    onChange: (checked: boolean) => {
+      setPlannerInput(key, checked)
     },
   }
 }

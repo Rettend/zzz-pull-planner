@@ -1,5 +1,7 @@
 import { createMemo, For } from 'solid-js'
-import { boolInput, CheckboxField, NumberField, numberInput } from '~/components/ui'
+import { boolInput, NumberField, numberInput, sanitizeNumberInput } from '~/components/ui'
+import { Button } from '~/components/ui/button'
+import { SwitchCard } from '~/components/ui/switch'
 import { isBannerPast } from '~/lib/constants'
 import { describeLuckMode, describeScenario } from '~/lib/plan-view'
 import { computePhaseRanges } from '~/lib/planner'
@@ -20,26 +22,28 @@ export function PlannerInputsPanel() {
     <div class="space-y-4">
       <div class="gap-3 grid grid-cols-1 sm:grid-cols-2">
         <NumberField label="Pulls on hand" min={0} {...numberInput(inputs, actions.setPlannerInput, 'pullsOnHand', { min: 0 })} />
-        <span class="hidden sm:block" />
 
         <For each={ranges()}>
           {(_, index) => (
             <NumberField
-              label={`Income Phase ${index() + 1}`}
+              label="Income"
+              label2={`Phase ${index() + 1}`}
               value={String(inputs().incomes?.[index()] ?? 0)}
               onInput={(e) => {
-                const v = Number(e.currentTarget.value)
+                const v = sanitizeNumberInput(e, { min: 0 })
                 const newIncomes = [...(inputs().incomes || [])]
                 while (newIncomes.length <= index()) newIncomes.push(0)
-                newIncomes[index()] = Number.isNaN(v) ? 0 : v
+                newIncomes[index()] = v
                 actions.setPlannerInput('incomes', newIncomes)
               }}
             />
           )}
         </For>
+      </div>
 
-        <div class="my-2 bg-zinc-700/50 col-span-1 h-px sm:col-span-2" />
+      <div class="my-2 bg-zinc-700/50 h-px" />
 
+      <div class="gap-3 grid grid-cols-1 sm:grid-cols-2">
         <NumberField
           label="Agent pity"
           min={0}
@@ -51,7 +55,7 @@ export function PlannerInputsPanel() {
             { min: 0, max: ui.local.planningMode === 's-rank' ? 89 : 9 },
           )}
         />
-        <CheckboxField
+        <SwitchCard
           label="Agent guaranteed"
           {...boolInput(
             inputs,
@@ -71,7 +75,7 @@ export function PlannerInputsPanel() {
             { min: 0, max: ui.local.planningMode === 's-rank' ? 79 : 9 },
           )}
         />
-        <CheckboxField
+        <SwitchCard
           label="W-Engine guaranteed"
           {...boolInput(
             inputs,
@@ -81,18 +85,18 @@ export function PlannerInputsPanel() {
         />
       </div>
 
-      <div class="my-2 bg-zinc-700/50 col-span-1 h-px sm:col-span-2" />
+      <div class="my-2 bg-zinc-700/50 h-px" />
 
       <div class="text-sm mt-6 space-y-3">
         <div class="flex flex-wrap gap-2 items-center">
           <For each={['p50', 'p60', 'p75', 'p90', 'ev'] as const}>
             {value => (
-              <button
-                class={`px-3 py-1.5 border rounded-md ${scenario() === value ? 'bg-emerald-600/30 border-emerald-500' : 'bg-zinc-900 border-zinc-700'}`}
+              <Button
+                variant={scenario() === value ? 'green' : 'gray'}
                 onClick={() => actions.setScenario(value)}
               >
                 {value}
-              </button>
+              </Button>
             )}
           </For>
         </div>
@@ -100,12 +104,12 @@ export function PlannerInputsPanel() {
         <div class="mt-5 flex flex-wrap gap-2 items-center">
           <For each={['best', 'realistic', 'worst'] as const}>
             {mode => (
-              <button
-                class={`px-3 py-1.5 border rounded-md ${luckMode() === mode ? 'bg-emerald-600/30 border-emerald-500' : 'bg-zinc-900 border-zinc-700'}`}
+              <Button
+                variant={luckMode() === mode ? 'green' : 'gray'}
                 onClick={() => actions.setPlannerInput('luckMode', mode)}
               >
                 {mode.charAt(0).toUpperCase() + mode.slice(1)}
-              </button>
+              </Button>
             )}
           </For>
         </div>

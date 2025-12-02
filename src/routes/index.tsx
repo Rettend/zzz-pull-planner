@@ -95,6 +95,20 @@ export default function Home() {
     })
   }
 
+  const featuredAgentNames = createMemo(() => {
+    const banners = activeBanners()
+    const names = new Set<string>()
+    for (const b of banners) {
+      if (b.type === 'agent') {
+        const agent = game.resolveAgent(b.featured)
+        if (agent) {
+          names.add(agent.name)
+        }
+      }
+    }
+    return Array.from(names)
+  })
+
   return (
     <div class="mx-auto max-w-7xl relative space-y-6">
       <section class="p-2 border border-zinc-700 rounded-xl bg-zinc-800/50">
@@ -149,6 +163,34 @@ export default function Home() {
           </ClientOnly>
         </section>
       </div>
+
+      <section class="text-sm text-zinc-500 mt-12 pt-8 border-t border-zinc-800 flex flex-col gap-4">
+        <h1 class="text-lg text-zinc-400 font-bold">ZZZ Pull Planner & Tracker</h1>
+        <p>
+          This tool helps you calculate the probabilities for getting the limited agents in
+          {' '}
+          <strong>Zenless Zone Zero</strong>
+          .
+          Track your pity, manage your Polychrome savings, and simulate pulls to see your chances. The
+          {' '}
+          <strong>ZZZ Pull Planner</strong>
+          {' '}
+          has detailed cost breakdowns and different safety floors (p50, p75, p90).
+        </p>
+        <p>
+          It's automatically updated with the latest banners, so you can plan your pulls for the latest agents like
+          {' '}
+          {featuredAgentNames().length > 0
+            ? featuredAgentNames().slice(0, 4).map((name, i) => (
+                <>
+                  {i > 0 ? ', ' : ''}
+                  <strong>{name}</strong>
+                </>
+              ))
+            : <strong>Ellen</strong>}
+          , and their W-Engines!
+        </p>
+      </section>
     </div>
   )
 }

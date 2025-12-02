@@ -19,7 +19,12 @@ export function formatPlanCopyText(
   selectedTargets: { name: string, channel: 'agent' | 'engine' }[],
   plan: PhasePlan,
   checkRarity?: (name: string) => number,
+  resolveName?: (name: string, channel: 'agent' | 'engine') => string,
 ): string {
+  const getName = (name: string, channel: 'agent' | 'engine') => {
+    return resolveName ? resolveName(name, channel) : formatSlug(name)
+  }
+
   const lines: string[] = []
   lines.push(`Scenario: ${scenario}`)
   lines.push('')
@@ -39,7 +44,7 @@ export function formatPlanCopyText(
   }
   else {
     selectedTargets.forEach((t, idx) => {
-      lines.push(`${idx + 1}. ${formatSlug(t.name)} [${t.channel === 'agent' ? 'Agent' : 'W-Engine'}]`)
+      lines.push(`${idx + 1}. ${getName(t.name, t.channel)} [${t.channel === 'agent' ? 'Agent' : 'W-Engine'}]`)
     })
   }
   lines.push('')
@@ -88,9 +93,9 @@ export function formatPlanCopyText(
     lines.push('')
   })
 
-  const fundedAgentsList = selectedTargets.filter(t => t.channel === 'agent' && plan.fundedTargets.includes(t.name)).map(t => formatSlug(t.name))
-  const fundedEnginesList = selectedTargets.filter(t => t.channel === 'engine' && plan.fundedTargets.includes(t.name)).map(t => formatSlug(t.name))
-  const missed = selectedTargets.filter(t => !plan.fundedTargets.includes(t.name)).map(t => formatSlug(t.name))
+  const fundedAgentsList = selectedTargets.filter(t => t.channel === 'agent' && plan.fundedTargets.includes(t.name)).map(t => getName(t.name, t.channel))
+  const fundedEnginesList = selectedTargets.filter(t => t.channel === 'engine' && plan.fundedTargets.includes(t.name)).map(t => getName(t.name, t.channel))
+  const missed = selectedTargets.filter(t => !plan.fundedTargets.includes(t.name)).map(t => getName(t.name, t.channel))
 
   lines.push('Totals:')
   lines.push(`- Agents: ${formatNumber(plan.totals.agentsGot)} of ${selectedTargets.filter(t => t.channel === 'agent').length}`)

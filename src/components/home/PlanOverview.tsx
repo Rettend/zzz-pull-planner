@@ -3,10 +3,15 @@ import type { Banner } from '~/lib/constants'
 import type { SelectedTargetInput } from '~/lib/plan-view'
 import type { PhasePlan, PlannerInputs, Scenario } from '~/lib/planner'
 import type { TargetAggregate } from '~/stores/targets'
-import { createMemo, createSignal, For, Show } from 'solid-js'
+import { toPng } from 'html-to-image'
+import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js'
+import { ShareablePlanCard } from '~/components/ShareablePlanCard'
 import { Badge, BudgetBar, StatRow } from '~/components/ui'
+import { Button } from '~/components/ui/button'
+import { SwitchCard } from '~/components/ui/switch'
 import { formatPlanCopyText } from '~/lib/clipboard'
 import { buildPhaseRanges, calculateDisplayedCost, channelBreakdownParts, createFundedMindscapes } from '~/lib/plan-view'
+import { useAccountsStore } from '~/stores/accounts'
 import { useGame } from '~/stores/game'
 import { TargetIconCard } from '../TargetIconCard'
 import { ChannelCostRow } from './ChannelCostRow'
@@ -26,6 +31,52 @@ interface PlanOverviewProps {
 
 export function PlanOverview(props: PlanOverviewProps) {
   const [copied, setCopied] = createSignal(false)
+  const [showShareModal, setShowShareModal] = createSignal(false)
+  const [generating, setGenerating] = createSignal(false)
+
+  const [accountsLocal] = useAccountsStore()
+  const accountName = createMemo(() => {
+    return accountsLocal.accounts.find(a => a.id === accountsLocal.currentId)?.name || 'Proxy'
+  })
+
+  const [shareConfig, setShareConfig] = createSignal({
+    showAccountName: true,
+    showProbability: true,
+    showScenario: true,
+  })
+
+  const [windowWidth, setWindowWidth] = createSignal(typeof window !== 'undefined' ? window.innerWidth : 0)
+
+  const updateWidth = () => {
+    if (typeof window !== 'undefined')
+      setWindowWidth(window.innerWidth)
+  }
+
+  onMount(() => {
+    updateWidth()
+    window.addEventListener('resize', updateWidth)
+  })
+
+  onCleanup(() => {
+    if (typeof window !== 'undefined')
+      window.removeEventListener('resize', updateWidth)
+    document.body.style.overflow = ''
+  })
+
+  const mobileScale = createMemo(() => {
+    const w = windowWidth()
+    if (w > 0 && w < 768) {
+      return w / 600
+    }
+    return 1
+  })
+
+  createEffect(() => {
+    if (showShareModal())
+      document.body.style.overflow = 'hidden'
+    else
+      document.body.style.overflow = ''
+  })
 
   const phaseRanges = createMemo(() => buildPhaseRanges(props.banners()))
   const totals = createMemo(() => props.plan().totals)
@@ -162,7 +213,18 @@ export function PlanOverview(props: PlanOverviewProps) {
 
   async function onCopy() {
     try {
-      const text = formatPlanCopyText(props.inputs(), props.scenario(), props.selectedTargets(), props.plan(), commonParams().checkRarity)
+      const text = formatPlanCopyText(
+        props.inputs(),
+        props.scenario(),
+        props.selectedTargets(),
+        props.plan(),
+        commonParams().checkRarity,
+        (name, channel) => {
+          if (channel === 'agent')
+            return game.resolveAgent(name)?.name ?? name
+          return game.resolveWEngine(name)?.name ?? name
+        },
+      )
       if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText)
         await navigator.clipboard.writeText(text)
       setCopied(true)
@@ -170,6 +232,42 @@ export function PlanOverview(props: PlanOverviewProps) {
     }
     catch {
       setCopied(false)
+    }
+  }
+
+  async function onShare() {
+    setShowShareModal(true)
+  }
+
+  async function generateImage(action: 'download' | 'copy') {
+    const node = document.getElementById('shareable-plan-card')
+    if (!node)
+      return
+
+    setGenerating(true)
+    try {
+      const dataUrl = await toPng(node, { cacheBust: true, pixelRatio: 2 })
+
+      if (action === 'download') {
+        const link = document.createElement('a')
+        link.download = `zzz-pull-plan-${new Date().toISOString().split('T')[0]}.png`
+        link.href = dataUrl
+        link.click()
+      }
+      else {
+        const blob = await (await fetch(dataUrl)).blob()
+        await navigator.clipboard.write([
+          new ClipboardItem({ 'image/png': blob }),
+        ])
+        setCopied(true)
+        setTimeout(() => setCopied(false), 1500)
+      }
+    }
+    catch (err) {
+      console.error('Failed to generate image', err)
+    }
+    finally {
+      setGenerating(false)
     }
   }
 
@@ -194,16 +292,120 @@ export function PlanOverview(props: PlanOverviewProps) {
               title="How many W-Engines from your selection are affordable across all phases"
             />
             <Badge label={`${Math.round(props.plan().totals.pullsLeftEnd)} left`} title="Estimated pulls remaining at the end of the plan" />
-            <button
-              class="px-3 py-1.5 border border-zinc-700 rounded-md bg-zinc-900 inline-flex gap-2 items-center hover:bg-zinc-800"
+            <Button
+              variant="gray"
               onClick={onCopy}
               title="Copy inputs, ordered targets, and plan summary"
+              class="inline-flex gap-2 items-center"
             >
               <i class={`size-4 ${copied() ? 'i-ph:check-bold' : 'i-ph:clipboard-text-duotone'}`} />
               Copy
-            </button>
+            </Button>
+            <Button
+              variant="green"
+              onClick={onShare}
+              title="Create a shareable image of your plan"
+              class="inline-flex gap-2 items-center"
+            >
+              <i class="i-ph:share-network-duotone size-4" />
+              Share
+            </Button>
           </div>
         </div>
+
+        <Show when={showShareModal()}>
+          <div class="p-0 bg-black/80 flex items-center inset-0 justify-center fixed z-50 backdrop-blur-sm md:p-4" onClick={() => setShowShareModal(false)}>
+            <div class="border-zinc-700 rounded-none bg-zinc-900 flex flex-col h-full max-h-full w-full shadow-2xl overflow-hidden md:border md:rounded-xl lg:h-auto md:max-h-[90vh] md:max-w-5xl" onClick={e => e.stopPropagation()}>
+              <div class="p-4 bg-zinc-950/50 flex shrink-0 items-center justify-between">
+                <h3 class="text-lg text-white font-bold flex gap-2 items-center">
+                  Share Plan
+                </h3>
+                <button
+                  onClick={() => setShowShareModal(false)}
+                  class="text-zinc-400 p-1 rounded-md transition-colors hover:text-white hover:bg-zinc-800"
+                >
+                  <i class="i-ph:x-bold size-5" />
+                </button>
+              </div>
+
+              <div class="bg-zinc-950/50 flex flex-1 flex-col gap-6 overflow-auto lg:flex-row">
+                {/* Preview Area */}
+                <div class="flex flex-1 items-start justify-center overflow-hidden md:p-6 lg:min-h-[500px]">
+                  <div
+                    class="origin-top md:w-auto md:scale-85"
+                    style={{
+                      width: windowWidth() < 768 ? '600px' : '800px',
+                      transform: mobileScale() < 1 ? `scale(${mobileScale()})` : undefined,
+                    }}
+                  >
+                    <ShareablePlanCard
+                      plan={props.plan()}
+                      inputs={props.inputs()}
+                      scenario={props.scenario()}
+                      selectedTargets={props.selectedTargets()}
+                      groupedTargets={props.groupedTargets()}
+                      accountName={accountName()}
+                      showAccountName={shareConfig().showAccountName}
+                      showProbability={shareConfig().showProbability}
+                      showScenario={shareConfig().showScenario}
+                    />
+                  </div>
+                </div>
+
+                {/* Controls Sidebar */}
+                <div class="p-4 shrink-0 w-full space-y-6 md:p-6 lg:w-72">
+                  <div class="space-y-4">
+                    <h4 class="text-sm text-zinc-400 tracking-wider font-medium uppercase">Configuration</h4>
+
+                    <div class="space-y-3">
+                      <SwitchCard
+                        label="Show Account Name"
+                        checked={shareConfig().showAccountName}
+                        onChange={checked => setShareConfig(prev => ({ ...prev, showAccountName: checked }))}
+                      />
+                      <SwitchCard
+                        label="Show Stats"
+                        checked={shareConfig().showProbability}
+                        onChange={checked => setShareConfig(prev => ({ ...prev, showProbability: checked }))}
+                      />
+                      <SwitchCard
+                        label="Show Scenario"
+                        checked={shareConfig().showScenario}
+                        onChange={checked => setShareConfig(prev => ({ ...prev, showScenario: checked }))}
+                      />
+                    </div>
+                  </div>
+
+                  <div class="pt-4 border-t border-zinc-800 flex flex-wrap gap-2">
+                    <Button
+                      variant="green"
+                      onClick={() => generateImage('download')}
+                      disabled={generating()}
+                      class="inline-flex gap-2 items-center"
+                    >
+                      <Show when={generating()} fallback={<i class="i-ph:download-simple-bold size-4" />}>
+                        <i class="i-gg:spinner size-4 animate-spin" />
+                      </Show>
+                      Download
+                    </Button>
+
+                    <Button
+                      variant="gray"
+                      onClick={() => generateImage('copy')}
+                      disabled={generating()}
+                      class="inline-flex gap-2 items-center"
+                    >
+                      <Show when={copied()} fallback={<i class="i-ph:copy-simple-bold size-4" />}>
+                        <i class="i-ph:check-bold size-4" />
+                      </Show>
+                      {copied() ? 'Copied!' : 'Copy'}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Show>
 
         <For each={props.plan().phases}>
           {(phase, index) => {
@@ -234,14 +436,19 @@ export function PlanOverview(props: PlanOverviewProps) {
                 <BudgetBar
                   total={isStart() ? phase.startBudget : phase.endBudget}
                   segments={[
-                    ...phase.itemDetails.map(item => ({
-                      value: item.cost,
-                      color: item.funded
-                        ? (item.channel === 'agent' ? 'bg-emerald-600/70' : 'bg-sky-600/70')
-                        : 'bg-red-500/60',
-                      label: item.channel === 'agent' ? 'Agent' : 'Engine',
-                      title: `${item.name} (${item.funded ? 'Funded' : 'Unfunded'})`,
-                    })),
+                    ...phase.itemDetails.map((item) => {
+                      const displayName = item.channel === 'agent'
+                        ? (game.resolveAgent(item.name)?.name ?? item.name)
+                        : (game.resolveWEngine(item.name)?.name ?? item.name)
+                      return {
+                        value: item.cost,
+                        color: item.funded
+                          ? (item.channel === 'agent' ? 'bg-emerald-600/70' : 'bg-sky-600/70')
+                          : 'bg-red-500/60',
+                        label: item.channel === 'agent' ? 'Agent' : 'Engine',
+                        title: `${displayName} (${item.funded ? 'Funded' : 'Unfunded'})`,
+                      }
+                    }),
                     {
                       value: isStart() ? phase.carryToNextPhaseStart : phase.carryToNextPhaseEnd,
                       color: 'bg-zinc-700',
@@ -304,7 +511,7 @@ export function PlanOverview(props: PlanOverviewProps) {
                   <div class="flex items-center justify-between">
                     <h3 class="text-emerald-400 font-medium flex gap-2 items-center">
                       <i class="i-ph:check-circle-fill" />
-                      Secured
+                      Funded
                     </h3>
                     <span class="text-xs text-zinc-500">
                       {totals().agentsGot}

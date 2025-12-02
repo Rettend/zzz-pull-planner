@@ -1,0 +1,1 @@
+ALTER TABLE `targets` ADD `nickname` text;
