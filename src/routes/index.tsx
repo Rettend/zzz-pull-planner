@@ -1,5 +1,6 @@
 import type { SelectedTargetInput } from '~/lib/plan-view'
 import type { PhasePlan, PlannerInputs } from '~/lib/planner'
+import { Link, Meta, Title } from '@solidjs/meta'
 import { batch, createMemo, untrack } from 'solid-js'
 import { ClientOnly } from '~/components/ClientOnly'
 import { AccountsTabs } from '~/components/home/AccountsTabs'
@@ -14,6 +15,46 @@ import { aggregateTargets, useTargetsStore } from '~/stores/targets'
 import { useUIStore } from '~/stores/ui'
 
 export default function Home() {
+  return (
+    <>
+      <Title>ZZZ Pull Planner - Calculator & Tracker</Title>
+      <Meta name="description" content="ZZZ Pull Planner and Tracker. Calculate pull probabilities, track your history, simulate pulls, and plan your savings for Zenless Zone Zero." />
+      <Link rel="canonical" href="https://zzz.rettend.me/" />
+
+      <Meta property="og:title" content="ZZZ Pull Planner & Tracker" />
+      <Meta property="og:description" content="Plan your pulls in Zenless Zone Zero. Calculate probabilities, track pity, simulate outcomes, and manage your Polychrome savings." />
+      <Meta property="og:url" content="https://zzz.rettend.me/" />
+
+      <Meta name="twitter:title" content="ZZZ Pull Planner & Tracker" />
+      <Meta name="twitter:description" content="Plan your pulls in Zenless Zone Zero. Calculate probabilities, track pity, simulate outcomes, and manage your Polychrome savings." />
+
+      <script type="application/ld+json">
+        {JSON.stringify({
+          '@context': 'https://schema.org',
+          '@type': 'WebApplication',
+          'name': 'ZZZ Pull Planner',
+          'url': 'https://zzz.rettend.me',
+          'description': 'Plan your pulls in Zenless Zone Zero. Calculate probabilities, track pity, simulate outcomes, and manage your Polychrome savings.',
+          'applicationCategory': 'GameUtility',
+          'operatingSystem': 'Any',
+          'offers': {
+            '@type': 'Offer',
+            'price': '0',
+            'priceCurrency': 'USD',
+          },
+          'author': {
+            '@type': 'Person',
+            'name': 'Rettend',
+            'url': 'https://rettend.me',
+          },
+        })}
+      </script>
+      <HomeContent />
+    </>
+  )
+}
+
+function HomeContent() {
   const [ui, actions] = useUIStore()
   const [targets, targetActions] = useTargetsStore()
   const game = useGame()
@@ -58,7 +99,6 @@ export default function Home() {
     const currentInputs = untrack(inputs)
     if (currentInputs.pullsOnHand < count)
       return
-
     const updates: Partial<PlannerInputs> = {
       pullsOnHand: currentInputs.pullsOnHand - count,
     }

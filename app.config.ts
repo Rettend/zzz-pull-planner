@@ -7,7 +7,7 @@ export default defineConfig({
     preset: 'cloudflare-module',
     prerender: {
       routes: [
-        '/404',  // does not work idk how to do it
+        '/404', // does not work idk how to do it
         '/about',
         '/guide',
         '/sitemap.xml',
