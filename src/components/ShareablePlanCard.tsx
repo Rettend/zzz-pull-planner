@@ -103,7 +103,7 @@ export function ShareablePlanCard(props: ShareablePlanCardProps) {
         class="pointer-events-none absolute"
         style={{
           'inset': '12px',
-          'background-image': `url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M8 8l8 8' stroke='rgba(255, 255, 255, 0.025)' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E")`,
+          'background-image': `url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M8 8l8 8' stroke='${isLowProbability() ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)'}' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E")`,
           'mask-image': 'linear-gradient(to bottom, transparent 0px, black 8px, black calc(100% - 8px), transparent 100%)',
           '-webkit-mask-image': 'linear-gradient(to bottom, transparent 0px, black 8px, black calc(100% - 8px), transparent 100%)',
         }}
