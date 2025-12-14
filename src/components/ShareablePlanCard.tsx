@@ -10,6 +10,7 @@ interface ShareablePlanCardProps {
   showAccountName: boolean
   showProbability: boolean
   showScenario: boolean
+  pattern: 'diagonal' | 'dots' | 'plus' | 'none'
 
   plan: PhasePlan
   inputs: PlannerInputs
@@ -77,6 +78,22 @@ export function ShareablePlanCard(props: ShareablePlanCardProps) {
 
   const isLowProbability = createMemo(() => overallProbability() < scenarioThreshold())
 
+  const patternBackground = createMemo(() => {
+    const color = isLowProbability() ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)'
+
+    switch (props.pattern) {
+      case 'diagonal':
+        return `url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M8 8l8 8' stroke='${color}' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E")`
+      case 'dots':
+        return `url("data:image/svg+xml,%3Csvg width='16' height='16' viewBox='0 0 16 16' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='8' cy='8' r='1.5' fill='${color}'/%3E%3C/svg%3E")`
+      case 'plus':
+        return `url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M10 6v8M6 10h8' stroke='${color}' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E")`
+      case 'none':
+      default:
+        return 'none'
+    }
+  })
+
   return (
     <div
       id="shareable-plan-card"
@@ -109,16 +126,18 @@ export function ShareablePlanCard(props: ShareablePlanCardProps) {
       <div class="border-b-2 border-l-2 border-zinc-600/40 h-16 w-16 bottom-0 left-0 absolute" />
       <div class="border-b-2 border-r-2 border-zinc-600/40 h-16 w-16 bottom-0 right-0 absolute" />
 
-      {/* Diagonal dashed lines pattern */}
-      <div
-        class="pointer-events-none absolute"
-        style={{
-          'inset': '12px',
-          'background-image': `url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M8 8l8 8' stroke='${isLowProbability() ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)'}' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E")`,
-          'mask-image': 'linear-gradient(to bottom, transparent 0px, black 8px, black calc(100% - 8px), transparent 100%)',
-          '-webkit-mask-image': 'linear-gradient(to bottom, transparent 0px, black 8px, black calc(100% - 8px), transparent 100%)',
-        }}
-      />
+      {/* Background pattern */}
+      <Show when={props.pattern !== 'none'}>
+        <div
+          class="pointer-events-none absolute"
+          style={{
+            'inset': '12px',
+            'background-image': patternBackground(),
+            'mask-image': 'linear-gradient(to bottom, transparent 0px, black 8px, black calc(100% - 8px), transparent 100%)',
+            '-webkit-mask-image': 'linear-gradient(to bottom, transparent 0px, black 8px, black calc(100% - 8px), transparent 100%)',
+          }}
+        />
+      </Show>
 
       <div class="relative z-10 space-y-6">
         {/* Header */}
@@ -140,19 +159,19 @@ export function ShareablePlanCard(props: ShareablePlanCardProps) {
           {/* Stats row */}
           <Show when={props.showProbability}>
             <div class="flex gap-4">
-              <div class="px-4 py-2 text-center border border-zinc-700/50 rounded-lg bg-zinc-800/80">
+              <div class="px-4 py-2 text-center border border-zinc-700/50 rounded-lg bg-zinc-700/30 backdrop-blur-sm">
                 <div class="text-xs text-zinc-500 tracking-wide font-medium uppercase">Pulls</div>
                 <div class="text-xl text-white font-bold tabular-nums">{Math.round(totalPulls())}</div>
               </div>
-              <div class="px-4 py-2 text-center border border-zinc-700/50 rounded-lg bg-zinc-800/80">
+              <div class="px-4 py-2 text-center border border-zinc-700/50 rounded-lg bg-zinc-700/30 backdrop-blur-sm">
                 <div class="text-xs text-zinc-500 tracking-wide font-medium uppercase">Left</div>
                 <div class="text-xl text-white font-bold tabular-nums">{Math.round(totals().pullsLeftEnd)}</div>
               </div>
               <div
                 class="px-4 py-2 text-center rounded-lg"
                 classList={{
-                  'border border-emerald-700/30 bg-emerald-900/30': !isLowProbability(),
-                  'border border-red-700/30 bg-red-900/30': isLowProbability(),
+                  'border border-emerald-700/30 bg-emerald-900/30 backdrop-blur-sm': !isLowProbability(),
+                  'border border-red-700/30 bg-red-900/30 backdrop-blur-sm': isLowProbability(),
                 }}
               >
                 <div
@@ -186,7 +205,10 @@ export function ShareablePlanCard(props: ShareablePlanCardProps) {
                   <i class="i-ph:check-bold text-sm text-emerald-400" />
                 </div>
                 <h3 class="text-base text-zinc-200 font-semibold">Funded</h3>
-                <div class="bg-zinc-700/50 flex-1 h-px" />
+                <div
+                  class="flex-1 h-px"
+                  classList={{ 'bg-zinc-700/50': props.pattern === 'none' }}
+                />
                 <span class="text-xs text-zinc-500 font-medium">
                   {totals().agentsGot}
                   {' '}
@@ -233,7 +255,10 @@ export function ShareablePlanCard(props: ShareablePlanCardProps) {
                   <i class="i-ph:x-bold text-sm text-red-400" />
                 </div>
                 <h3 class="text-base text-zinc-200 font-semibold">Missing</h3>
-                <div class="bg-zinc-700/50 flex-1 h-px" />
+                <div
+                  class="flex-1 h-px"
+                  classList={{ 'bg-zinc-700/50': props.pattern === 'none' }}
+                />
               </div>
               <div class="pl-2 flex flex-wrap gap-4">
                 <For each={missingItems()}>
@@ -280,7 +305,13 @@ export function ShareablePlanCard(props: ShareablePlanCardProps) {
         </div>
 
         {/* Footer */}
-        <div class="mt-4 pt-4 border-t border-zinc-700/50 flex items-center justify-between">
+        <div
+          class="mt-4 pt-4 border-t flex items-center justify-between"
+          classList={{
+            'border-zinc-700/50': props.pattern === 'none',
+            'border-transparent': props.pattern !== 'none',
+          }}
+        >
           <div class="flex gap-2 items-center">
             <div class="text-sm text-zinc-500 font-medium">
               zzz.rettend.me

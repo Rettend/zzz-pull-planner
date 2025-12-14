@@ -13,6 +13,7 @@ import { formatPlanCopyText } from '~/lib/clipboard'
 import { buildPhaseRanges, calculateDisplayedCost, channelBreakdownParts, createFundedMindscapes } from '~/lib/plan-view'
 import { useAccountsStore } from '~/stores/accounts'
 import { useGame } from '~/stores/game'
+import { useUIStore } from '~/stores/ui'
 import { TargetIconCard } from '../TargetIconCard'
 import { ChannelCostRow } from './ChannelCostRow'
 import { PhaseHeader } from './PhaseHeader'
@@ -38,6 +39,8 @@ export function PlanOverview(props: PlanOverviewProps) {
   const accountName = createMemo(() => {
     return accountsLocal.accounts.find(a => a.id === accountsLocal.currentId)?.name || 'Proxy'
   })
+
+  const [uiState, uiActions] = useUIStore()
 
   const [shareConfig, setShareConfig] = createSignal({
     showAccountName: true,
@@ -348,6 +351,7 @@ export function PlanOverview(props: PlanOverviewProps) {
                       showAccountName={shareConfig().showAccountName}
                       showProbability={shareConfig().showProbability}
                       showScenario={shareConfig().showScenario}
+                      pattern={uiState.local.shareCardPattern}
                     />
                   </div>
                 </div>
@@ -373,6 +377,71 @@ export function PlanOverview(props: PlanOverviewProps) {
                         checked={shareConfig().showScenario}
                         onChange={checked => setShareConfig(prev => ({ ...prev, showScenario: checked }))}
                       />
+                    </div>
+
+                    {/* Pattern Selector */}
+                    <div class="flex flex-col gap-2">
+                      <span class="text-xs text-zinc-500 font-medium">Background</span>
+                      <div class="flex gap-2">
+                        {/* None */}
+                        <button
+                          onClick={() => uiActions.setShareCardPattern('none')}
+                          class="border rounded-md flex shrink-0 h-10 w-10 transition-all items-center justify-center"
+                          classList={{
+                            'border-emerald-500 bg-emerald-500/20': uiState.local.shareCardPattern === 'none',
+                            'border-zinc-700 bg-zinc-900 hover:border-zinc-600': uiState.local.shareCardPattern !== 'none',
+                          }}
+                          title="No pattern"
+                        />
+
+                        {/* Diagonal */}
+                        <button
+                          onClick={() => uiActions.setShareCardPattern('diagonal')}
+                          class="border rounded-md flex shrink-0 h-10 w-10 transition-all items-center justify-center overflow-hidden"
+                          classList={{
+                            'border-emerald-500': uiState.local.shareCardPattern === 'diagonal',
+                            'border-zinc-700 hover:border-zinc-600': uiState.local.shareCardPattern !== 'diagonal',
+                          }}
+                          title="Diagonal dashes"
+                          style={{
+                            'background-color': uiState.local.shareCardPattern === 'diagonal' ? 'rgba(16, 185, 129, 0.15)' : '#18181b',
+                            'background-image': `url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 5l10 10' stroke='rgba(16, 185, 129, 0.4)' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E")`,
+                            'background-position': '-1px -1px',
+                          }}
+                        />
+
+                        {/* Dots */}
+                        <button
+                          onClick={() => uiActions.setShareCardPattern('dots')}
+                          class="border rounded-md flex shrink-0 h-10 w-10 transition-all items-center justify-center overflow-hidden"
+                          classList={{
+                            'border-emerald-500': uiState.local.shareCardPattern === 'dots',
+                            'border-zinc-700 hover:border-zinc-600': uiState.local.shareCardPattern !== 'dots',
+                          }}
+                          title="Dots"
+                          style={{
+                            'background-color': uiState.local.shareCardPattern === 'dots' ? 'rgba(16, 185, 129, 0.15)' : '#18181b',
+                            'background-image': `url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='10' cy='10' r='1.5' fill='rgba(16, 185, 129, 0.4)'/%3E%3C/svg%3E")`,
+                            'background-position': '-1px -1px',
+                          }}
+                        />
+
+                        {/* Plus */}
+                        <button
+                          onClick={() => uiActions.setShareCardPattern('plus')}
+                          class="border rounded-md flex shrink-0 h-10 w-10 transition-all items-center justify-center overflow-hidden"
+                          classList={{
+                            'border-emerald-500': uiState.local.shareCardPattern === 'plus',
+                            'border-zinc-700 hover:border-zinc-600': uiState.local.shareCardPattern !== 'plus',
+                          }}
+                          title="Plus signs"
+                          style={{
+                            'background-color': uiState.local.shareCardPattern === 'plus' ? 'rgba(16, 185, 129, 0.15)' : '#18181b',
+                            'background-image': `url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M10 6v8M6 10h8' stroke='rgba(16, 185, 129, 0.4)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E")`,
+                            'background-position': '-1px -1px',
+                          }}
+                        />
+                      </div>
                     </div>
                   </div>
 

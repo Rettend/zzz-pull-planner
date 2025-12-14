@@ -13,6 +13,7 @@ interface UILocalState {
   scenario: Scenario
   phaseTimings: Record<number, 'start' | 'end'>
   planningMode: 's-rank' | 'a-rank'
+  shareCardPattern: 'diagonal' | 'dots' | 'plus' | 'none'
 }
 
 type UIStoreState = UIState & {
@@ -25,6 +26,7 @@ interface UIStoreActions {
   setScenario: (scenario: UILocalState['scenario']) => void
   setPhaseTiming: (index: number, t: 'start' | 'end') => void
   setPlanningMode: (mode: 's-rank' | 'a-rank') => void
+  setShareCardPattern: (pattern: UILocalState['shareCardPattern']) => void
   resetPlannerInputs: () => void
 }
 
@@ -51,6 +53,7 @@ export function UIStoreProvider(props: ParentProps<{ accountId: string }>) {
     scenario: 'p60',
     phaseTimings: {},
     planningMode: 's-rank',
+    shareCardPattern: 'diagonal',
   })
   const storageKey = untrack(() => `ui:${props.accountId}`)
   const [local, setLocal] = makePersisted([baseLocal, setBaseLocal], {
@@ -78,6 +81,9 @@ export function UIStoreProvider(props: ParentProps<{ accountId: string }>) {
     },
     setPlanningMode: (mode) => {
       setLocal('planningMode', mode)
+    },
+    setShareCardPattern: (pattern) => {
+      setLocal('shareCardPattern', pattern)
     },
     resetPlannerInputs: () => {
       setLocal('plannerInputs', defaultPlannerInputs)
