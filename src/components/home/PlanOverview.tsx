@@ -354,7 +354,7 @@ export function PlanOverview(props: PlanOverviewProps) {
 
                 {/* Controls Sidebar */}
                 <div class="p-4 shrink-0 w-full space-y-6 md:p-6 lg:w-72">
-                  <div class="space-y-4">
+                  <div class="flex flex-col gap-4">
                     <h4 class="text-sm text-zinc-400 tracking-wider font-medium uppercase">Configuration</h4>
 
                     <div class="space-y-3">
@@ -376,7 +376,7 @@ export function PlanOverview(props: PlanOverviewProps) {
                     </div>
                   </div>
 
-                  <div class="pt-4 border-t border-zinc-800 flex flex-wrap gap-2">
+                  <div class="pt-4 flex flex-wrap gap-2">
                     <Button
                       variant="green"
                       onClick={() => generateImage('download')}
