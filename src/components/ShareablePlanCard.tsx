@@ -64,7 +64,18 @@ export function ShareablePlanCard(props: ShareablePlanCardProps) {
     return phases[phases.length - 1].successProbEnd ?? 0
   })
 
-  const isLowProbability = createMemo(() => overallProbability() < 0.5)
+  const scenarioThreshold = createMemo(() => {
+    switch (props.scenario) {
+      case 'p50': return 0.5
+      case 'p60': return 0.6
+      case 'p75': return 0.75
+      case 'p90': return 0.9
+      case 'ev': return 0.5
+      default: return 0.5
+    }
+  })
+
+  const isLowProbability = createMemo(() => overallProbability() < scenarioThreshold())
 
   return (
     <div

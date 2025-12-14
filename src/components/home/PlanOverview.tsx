@@ -423,12 +423,24 @@ export function PlanOverview(props: PlanOverviewProps) {
               return banner ? (banner.title || `Phase ${index() + 1}`) : `Phase ${index() + 1}`
             })
 
+            const successThreshold = createMemo(() => {
+              switch (props.scenario()) {
+                case 'p50': return 0.5
+                case 'p60': return 0.6
+                case 'p75': return 0.75
+                case 'p90': return 0.9
+                case 'ev': return 0.5
+                default: return 0.5
+              }
+            })
+
             return (
               <div class="p-3 border border-zinc-700 rounded-lg bg-zinc-900/40 space-y-3">
                 <PhaseHeader
                   title={title()}
                   budget={budget()}
                   success={success()}
+                  successThreshold={successThreshold()}
                   timing={timing()}
                   onTimingChange={t => props.onPhaseTimingChange(index(), t)}
                 />

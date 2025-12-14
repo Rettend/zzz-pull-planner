@@ -5,6 +5,7 @@ interface PhaseHeaderProps {
   title: string
   budget: number
   success: number
+  successThreshold?: number
   timing: 'start' | 'end'
   onTimingChange: (value: 'start' | 'end') => void
 }
@@ -20,7 +21,7 @@ export function PhaseHeader(props: PhaseHeaderProps) {
           <span class="text-emerald-300">{props.budget}</span>
         </div>
         <Badge
-          ok={props.success >= 0.8}
+          ok={props.success >= (props.successThreshold ?? 0.8)}
           label={`${Math.round(props.success * 100)}%`}
           title="Probability that all selected targets fit within the current budget"
         />
