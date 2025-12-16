@@ -26,7 +26,7 @@ The site is available at [zzz.rettend.me](https://zzz.rettend.me/)
 
 Banner data and assets are from the [Zenless Zone Zero Fandom Wiki](https://zenless-zone-zero.fandom.com/).
 
-Probability rates are based on the [official gatcha probability disclosure](https://gs.hoyoverse.com/static/nap-official-gacha-probability/index.html?lang=en-us#/).
+Probability rates are based on the [official gacha probability disclosure](https://gs.hoyoverse.com/static/nap-official-gacha-probability/index.html?lang=en-us#/).
 
 ## License
 
