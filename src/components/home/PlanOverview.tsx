@@ -47,7 +47,7 @@ export function PlanOverview(props: PlanOverviewProps) {
     showScenario: true,
   })
 
-  const [windowWidth, setWindowWidth] = createSignal(typeof window !== 'undefined' ? window.innerWidth : 0)
+  const [windowWidth, setWindowWidth] = createSignal(0)
 
   const updateWidth = () => {
     if (typeof window !== 'undefined')
@@ -318,147 +318,149 @@ export function PlanOverview(props: PlanOverviewProps) {
           title="Share Plan"
           maxWidthClass="md:max-w-5xl"
         >
-          <div class="bg-zinc-950/50 flex flex-1 flex-col gap-6 overflow-auto lg:flex-row">
-            {/* Preview Area */}
-            <div class="flex flex-1 items-start justify-center overflow-hidden md:p-6 lg:min-h-[500px]">
-              <div
-                class="origin-top md:w-auto md:scale-85"
-                style={{
-                  width: windowWidth() < 768 ? '600px' : '800px',
-                  transform: mobileScale() < 1 ? `scale(${mobileScale()})` : undefined,
-                }}
-              >
-                <ShareablePlanCard
-                  plan={props.plan()}
-                  inputs={props.inputs()}
-                  scenario={props.scenario()}
-                  selectedTargets={props.selectedTargets()}
-                  sortedTargets={props.sortedTargets()}
-                  accountName={profileName()}
-                  showAccountName={shareConfig().showAccountName}
-                  showProbability={shareConfig().showProbability}
-                  showScenario={shareConfig().showScenario}
-                  pattern={uiState.local.shareCardPattern}
-                />
-              </div>
-            </div>
-
-            {/* Controls Sidebar */}
-            <div class="p-4 shrink-0 w-full space-y-6 md:p-6 lg:w-72">
-              <div class="flex flex-col gap-4">
-                <h4 class="text-sm text-zinc-400 tracking-wider font-medium uppercase">Configuration</h4>
-
-                <div class="space-y-3">
-                  <SwitchCard
-                    label="Show Account Name"
-                    checked={shareConfig().showAccountName}
-                    onChange={checked => setShareConfig(prev => ({ ...prev, showAccountName: checked }))}
-                  />
-                  <SwitchCard
-                    label="Show Stats"
-                    checked={shareConfig().showProbability}
-                    onChange={checked => setShareConfig(prev => ({ ...prev, showProbability: checked }))}
-                  />
-                  <SwitchCard
-                    label="Show Scenario"
-                    checked={shareConfig().showScenario}
-                    onChange={checked => setShareConfig(prev => ({ ...prev, showScenario: checked }))}
+          <Show when={showShareModal()}>
+            <div class="bg-zinc-950/50 flex flex-1 flex-col gap-6 overflow-auto lg:flex-row">
+              {/* Preview Area */}
+              <div class="flex flex-1 items-start justify-center overflow-hidden md:p-6 lg:min-h-[500px]">
+                <div
+                  class="origin-top md:w-auto md:scale-85"
+                  style={{
+                    width: windowWidth() < 768 ? '600px' : '800px',
+                    transform: mobileScale() < 1 ? `scale(${mobileScale()})` : undefined,
+                  }}
+                >
+                  <ShareablePlanCard
+                    plan={props.plan()}
+                    inputs={props.inputs()}
+                    scenario={props.scenario()}
+                    selectedTargets={props.selectedTargets()}
+                    sortedTargets={props.sortedTargets()}
+                    accountName={profileName()}
+                    showAccountName={shareConfig().showAccountName}
+                    showProbability={shareConfig().showProbability}
+                    showScenario={shareConfig().showScenario}
+                    pattern={uiState.local.shareCardPattern}
                   />
                 </div>
+              </div>
 
-                {/* Pattern Selector */}
-                <div class="flex flex-col gap-2">
-                  <span class="text-xs text-zinc-500 font-medium">Background</span>
-                  <div class="flex gap-2">
-                    {/* None */}
-                    <button
-                      onClick={() => uiActions.setShareCardPattern('none')}
-                      class="border rounded-md flex shrink-0 h-10 w-10 transition-all items-center justify-center"
-                      classList={{
-                        'border-emerald-500 bg-emerald-500/20': uiState.local.shareCardPattern === 'none',
-                        'border-zinc-700 bg-zinc-900 hover:border-zinc-600': uiState.local.shareCardPattern !== 'none',
-                      }}
-                      title="No pattern"
+              {/* Controls Sidebar */}
+              <div class="p-4 shrink-0 w-full space-y-6 md:p-6 lg:w-72">
+                <div class="flex flex-col gap-4">
+                  <h4 class="text-sm text-zinc-400 tracking-wider font-medium uppercase">Configuration</h4>
+
+                  <div class="space-y-3">
+                    <SwitchCard
+                      label="Show Account Name"
+                      checked={shareConfig().showAccountName}
+                      onChange={checked => setShareConfig(prev => ({ ...prev, showAccountName: checked }))}
                     />
-
-                    {/* Diagonal */}
-                    <button
-                      onClick={() => uiActions.setShareCardPattern('diagonal')}
-                      class="border rounded-md flex shrink-0 h-10 w-10 transition-all items-center justify-center overflow-hidden"
-                      classList={{
-                        'border-emerald-500': uiState.local.shareCardPattern === 'diagonal',
-                        'border-zinc-700 hover:border-zinc-600': uiState.local.shareCardPattern !== 'diagonal',
-                      }}
-                      title="Diagonal dashes"
-                      style={{
-                        'background-color': uiState.local.shareCardPattern === 'diagonal' ? 'rgba(16, 185, 129, 0.15)' : '#18181b',
-                        'background-image': `url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 5l10 10' stroke='rgba(16, 185, 129, 0.4)' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E")`,
-                        'background-position': '-1px -1px',
-                      }}
+                    <SwitchCard
+                      label="Show Stats"
+                      checked={shareConfig().showProbability}
+                      onChange={checked => setShareConfig(prev => ({ ...prev, showProbability: checked }))}
                     />
-
-                    {/* Dots */}
-                    <button
-                      onClick={() => uiActions.setShareCardPattern('dots')}
-                      class="border rounded-md flex shrink-0 h-10 w-10 transition-all items-center justify-center overflow-hidden"
-                      classList={{
-                        'border-emerald-500': uiState.local.shareCardPattern === 'dots',
-                        'border-zinc-700 hover:border-zinc-600': uiState.local.shareCardPattern !== 'dots',
-                      }}
-                      title="Dots"
-                      style={{
-                        'background-color': uiState.local.shareCardPattern === 'dots' ? 'rgba(16, 185, 129, 0.15)' : '#18181b',
-                        'background-image': `url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='10' cy='10' r='1.5' fill='rgba(16, 185, 129, 0.4)'/%3E%3C/svg%3E")`,
-                        'background-position': '-1px -1px',
-                      }}
-                    />
-
-                    {/* Plus */}
-                    <button
-                      onClick={() => uiActions.setShareCardPattern('plus')}
-                      class="border rounded-md flex shrink-0 h-10 w-10 transition-all items-center justify-center overflow-hidden"
-                      classList={{
-                        'border-emerald-500': uiState.local.shareCardPattern === 'plus',
-                        'border-zinc-700 hover:border-zinc-600': uiState.local.shareCardPattern !== 'plus',
-                      }}
-                      title="Plus signs"
-                      style={{
-                        'background-color': uiState.local.shareCardPattern === 'plus' ? 'rgba(16, 185, 129, 0.15)' : '#18181b',
-                        'background-image': `url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M10 6v8M6 10h8' stroke='rgba(16, 185, 129, 0.4)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E")`,
-                        'background-position': '-1px -1px',
-                      }}
+                    <SwitchCard
+                      label="Show Scenario"
+                      checked={shareConfig().showScenario}
+                      onChange={checked => setShareConfig(prev => ({ ...prev, showScenario: checked }))}
                     />
                   </div>
+
+                  {/* Pattern Selector */}
+                  <div class="flex flex-col gap-2">
+                    <span class="text-xs text-zinc-500 font-medium">Background</span>
+                    <div class="flex gap-2">
+                      {/* None */}
+                      <button
+                        onClick={() => uiActions.setShareCardPattern('none')}
+                        class="border rounded-md flex shrink-0 h-10 w-10 transition-all items-center justify-center"
+                        classList={{
+                          'border-emerald-500 bg-emerald-500/20': uiState.local.shareCardPattern === 'none',
+                          'border-zinc-700 bg-zinc-900 hover:border-zinc-600': uiState.local.shareCardPattern !== 'none',
+                        }}
+                        title="No pattern"
+                      />
+
+                      {/* Diagonal */}
+                      <button
+                        onClick={() => uiActions.setShareCardPattern('diagonal')}
+                        class="border rounded-md flex shrink-0 h-10 w-10 transition-all items-center justify-center overflow-hidden"
+                        classList={{
+                          'border-emerald-500': uiState.local.shareCardPattern === 'diagonal',
+                          'border-zinc-700 hover:border-zinc-600': uiState.local.shareCardPattern !== 'diagonal',
+                        }}
+                        title="Diagonal dashes"
+                        style={{
+                          'background-color': uiState.local.shareCardPattern === 'diagonal' ? 'rgba(16, 185, 129, 0.15)' : '#18181b',
+                          'background-image': `url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 5l10 10' stroke='rgba(16, 185, 129, 0.4)' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E")`,
+                          'background-position': '-1px -1px',
+                        }}
+                      />
+
+                      {/* Dots */}
+                      <button
+                        onClick={() => uiActions.setShareCardPattern('dots')}
+                        class="border rounded-md flex shrink-0 h-10 w-10 transition-all items-center justify-center overflow-hidden"
+                        classList={{
+                          'border-emerald-500': uiState.local.shareCardPattern === 'dots',
+                          'border-zinc-700 hover:border-zinc-600': uiState.local.shareCardPattern !== 'dots',
+                        }}
+                        title="Dots"
+                        style={{
+                          'background-color': uiState.local.shareCardPattern === 'dots' ? 'rgba(16, 185, 129, 0.15)' : '#18181b',
+                          'background-image': `url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='10' cy='10' r='1.5' fill='rgba(16, 185, 129, 0.4)'/%3E%3C/svg%3E")`,
+                          'background-position': '-1px -1px',
+                        }}
+                      />
+
+                      {/* Plus */}
+                      <button
+                        onClick={() => uiActions.setShareCardPattern('plus')}
+                        class="border rounded-md flex shrink-0 h-10 w-10 transition-all items-center justify-center overflow-hidden"
+                        classList={{
+                          'border-emerald-500': uiState.local.shareCardPattern === 'plus',
+                          'border-zinc-700 hover:border-zinc-600': uiState.local.shareCardPattern !== 'plus',
+                        }}
+                        title="Plus signs"
+                        style={{
+                          'background-color': uiState.local.shareCardPattern === 'plus' ? 'rgba(16, 185, 129, 0.15)' : '#18181b',
+                          'background-image': `url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M10 6v8M6 10h8' stroke='rgba(16, 185, 129, 0.4)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E")`,
+                          'background-position': '-1px -1px',
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div class="pt-4 flex flex-wrap gap-2">
+                  <Button
+                    variant="green"
+                    onClick={() => generateImage('download')}
+                    disabled={generating()}
+                    class="inline-flex gap-2 items-center"
+                  >
+                    <Show when={generating()} fallback={<i class="i-ph:download-simple-bold size-4" />}>
+                      <i class="i-gg:spinner size-4 animate-spin" />
+                    </Show>
+                    Download
+                  </Button>
+
+                  <Button
+                    variant="gray"
+                    onClick={() => generateImage('copy')}
+                    disabled={generating()}
+                    class="inline-flex gap-2 items-center"
+                  >
+                    <Show when={copied()} fallback={<i class="i-ph:copy-simple-bold size-4" />}>
+                      <i class="i-ph:check-bold size-4" />
+                    </Show>
+                    {copied() ? 'Copied!' : 'Copy'}
+                  </Button>
                 </div>
               </div>
-
-              <div class="pt-4 flex flex-wrap gap-2">
-                <Button
-                  variant="green"
-                  onClick={() => generateImage('download')}
-                  disabled={generating()}
-                  class="inline-flex gap-2 items-center"
-                >
-                  <Show when={generating()} fallback={<i class="i-ph:download-simple-bold size-4" />}>
-                    <i class="i-gg:spinner size-4 animate-spin" />
-                  </Show>
-                  Download
-                </Button>
-
-                <Button
-                  variant="gray"
-                  onClick={() => generateImage('copy')}
-                  disabled={generating()}
-                  class="inline-flex gap-2 items-center"
-                >
-                  <Show when={copied()} fallback={<i class="i-ph:copy-simple-bold size-4" />}>
-                    <i class="i-ph:check-bold size-4" />
-                  </Show>
-                  {copied() ? 'Copied!' : 'Copy'}
-                </Button>
-              </div>
             </div>
-          </div>
+          </Show>
         </Modal>
 
         <For each={props.plan().phases}>

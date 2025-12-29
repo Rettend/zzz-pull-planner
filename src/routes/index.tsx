@@ -9,7 +9,6 @@ import { PlanOverview } from '~/components/home/PlanOverview'
 import { ProfilesTabs } from '~/components/home/ProfilesTabs'
 import { SavePlanBanner } from '~/components/home/SavePlanBanner'
 import { TargetPicker } from '~/components/TargetPicker'
-import { isBannerPast } from '~/lib/constants'
 import { computePlan, emptyPlan } from '~/lib/planner'
 import { useGame } from '~/stores/game'
 import { useProfilesStore } from '~/stores/profiles'
@@ -65,7 +64,7 @@ function HomeContent() {
   const scenario = createMemo(() => settings().scenario)
   const planningMode = createMemo(() => settings().planningMode ?? 's-rank')
 
-  const activeBanners = createMemo(() => game.banners().filter(b => !isBannerPast(b)))
+  const activeBanners = createMemo(() => game.banners())
   const currentTargets = createMemo(() => profileActions.currentProfile().targets ?? [])
 
   const showSavePlanBanner = createMemo(() => {
