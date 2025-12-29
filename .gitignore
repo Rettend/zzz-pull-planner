@@ -32,3 +32,4 @@ Thumbs.db
 docs/DATA.md
 drizzle/local.db
 data/
+tmp/

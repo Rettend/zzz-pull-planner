@@ -2,17 +2,18 @@ import type { Accessor } from 'solid-js'
 import type { Banner } from '~/lib/constants'
 import type { SelectedTargetInput } from '~/lib/plan-view'
 import type { PhasePlan, PlannerInputs, Scenario } from '~/lib/planner'
-import type { TargetAggregate } from '~/stores/targets'
+import type { ProfileTarget } from '~/stores/profiles'
 import { toPng } from 'html-to-image'
-import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js'
+import { createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js'
 import { ShareablePlanCard } from '~/components/ShareablePlanCard'
 import { Badge, BudgetBar, StatRow } from '~/components/ui'
 import { Button } from '~/components/ui/button'
+import { Modal } from '~/components/ui/modal'
 import { SwitchCard } from '~/components/ui/switch'
 import { formatPlanCopyText } from '~/lib/clipboard'
 import { buildPhaseRanges, calculateDisplayedCost, channelBreakdownParts, createFundedMindscapes } from '~/lib/plan-view'
-import { useAccountsStore } from '~/stores/accounts'
 import { useGame } from '~/stores/game'
+import { useProfilesStore } from '~/stores/profiles'
 import { useUIStore } from '~/stores/ui'
 import { TargetIconCard } from '../TargetIconCard'
 import { ChannelCostRow } from './ChannelCostRow'
@@ -24,7 +25,7 @@ interface PlanOverviewProps {
   inputs: Accessor<PlannerInputs>
   scenario: Accessor<Scenario>
   selectedTargets: Accessor<SelectedTargetInput[]>
-  groupedTargets: Accessor<TargetAggregate[]>
+  sortedTargets: Accessor<ProfileTarget[]>
   phaseTimings: Accessor<Record<number, 'start' | 'end'>>
   onPhaseTimingChange: (index: number, value: 'start' | 'end') => void
   planningMode: Accessor<'s-rank' | 'a-rank'>
@@ -35,10 +36,8 @@ export function PlanOverview(props: PlanOverviewProps) {
   const [showShareModal, setShowShareModal] = createSignal(false)
   const [generating, setGenerating] = createSignal(false)
 
-  const [accountsLocal] = useAccountsStore()
-  const accountName = createMemo(() => {
-    return accountsLocal.accounts.find(a => a.id === accountsLocal.currentId)?.name || 'Proxy'
-  })
+  const [, profileActions] = useProfilesStore()
+  const profileName = createMemo(() => profileActions.currentProfile().name || 'My Plan')
 
   const [uiState, uiActions] = useUIStore()
 
@@ -63,22 +62,14 @@ export function PlanOverview(props: PlanOverviewProps) {
   onCleanup(() => {
     if (typeof window !== 'undefined')
       window.removeEventListener('resize', updateWidth)
-    document.body.style.overflow = ''
   })
 
   const mobileScale = createMemo(() => {
     const w = windowWidth()
-    if (w > 0 && w < 768) {
+    if (w > 0 && w < 768)
       return w / 600
-    }
-    return 1
-  })
 
-  createEffect(() => {
-    if (showShareModal())
-      document.body.style.overflow = 'hidden'
-    else
-      document.body.style.overflow = ''
+    return 1
   })
 
   const phaseRanges = createMemo(() => buildPhaseRanges(props.banners()))
@@ -156,9 +147,8 @@ export function PlanOverview(props: PlanOverviewProps) {
           const numFeatured = banner.featuredARanks.length || 2
           const ratePerSpecific = 0.094 * 0.5 / numFeatured
           const yieldCount = costPerAgent * ratePerSpecific
-          for (const a of banner.featuredARanks) {
+          for (const a of banner.featuredARanks)
             addCount(a, yieldCount)
-          }
         }
       }
     }
@@ -171,9 +161,8 @@ export function PlanOverview(props: PlanOverviewProps) {
           const numFeatured = banner.featuredARanks.length || 2
           const ratePerSpecific = 0.150 * 0.5 / numFeatured
           const yieldCount = costPerEngine * ratePerSpecific
-          for (const a of banner.featuredARanks) {
+          for (const a of banner.featuredARanks)
             addCount(a, yieldCount)
-          }
         }
       }
     }
@@ -188,12 +177,11 @@ export function PlanOverview(props: PlanOverviewProps) {
     const list: { name: string, level: number, channel: 'agent' | 'engine' }[] = []
     const funded = fundedMindscapes()
 
-    for (const t of props.groupedTargets()) {
-      if (funded.has(t.name)) {
-        const level = funded.get(t.name)!
-        if (level >= -1) {
-          list.push({ name: t.name, level, channel: t.channel })
-        }
+    for (const t of props.sortedTargets()) {
+      if (funded.has(t.targetId)) {
+        const level = funded.get(t.targetId)!
+        if (level >= -1)
+          list.push({ name: t.targetId, level, channel: t.channelType })
       }
     }
     return list
@@ -203,13 +191,12 @@ export function PlanOverview(props: PlanOverviewProps) {
     const list: { name: string, current: number, desired: number, channel: 'agent' | 'engine' }[] = []
     const funded = fundedMindscapes()
 
-    for (const t of props.groupedTargets()) {
-      const current = funded.get(t.name) ?? -1
+    for (const t of props.sortedTargets()) {
+      const current = funded.get(t.targetId) ?? -1
       const desired = t.count - 1
 
-      if (current < desired) {
-        list.push({ name: t.name, current, desired, channel: t.channel })
-      }
+      if (current < desired)
+        list.push({ name: t.targetId, current, desired, channel: t.channelType })
     }
     return list
   })
@@ -316,165 +303,154 @@ export function PlanOverview(props: PlanOverviewProps) {
           </div>
         </div>
 
-        <Show when={showShareModal()}>
-          <div class="p-0 bg-black/80 flex items-center inset-0 justify-center fixed z-50 backdrop-blur-sm md:p-4" onClick={() => setShowShareModal(false)}>
-            <div class="border-zinc-700 rounded-none bg-zinc-900 flex flex-col h-full max-h-full w-full shadow-2xl overflow-hidden md:border md:rounded-xl lg:h-auto md:max-h-[90vh] md:max-w-5xl" onClick={e => e.stopPropagation()}>
-              <div class="p-4 bg-zinc-950/50 flex shrink-0 items-center justify-between">
-                <h3 class="text-lg text-white font-bold flex gap-2 items-center">
-                  Share Plan
-                </h3>
-                <button
-                  onClick={() => setShowShareModal(false)}
-                  class="text-zinc-400 p-1 rounded-md transition-colors hover:text-white hover:bg-zinc-800"
-                >
-                  <i class="i-ph:x-bold size-5" />
-                </button>
+        <Modal
+          open={showShareModal()}
+          onClose={() => setShowShareModal(false)}
+          title="Share Plan"
+          maxWidthClass="md:max-w-5xl"
+        >
+          <div class="bg-zinc-950/50 flex flex-1 flex-col gap-6 overflow-auto lg:flex-row">
+            {/* Preview Area */}
+            <div class="flex flex-1 items-start justify-center overflow-hidden md:p-6 lg:min-h-[500px]">
+              <div
+                class="origin-top md:w-auto md:scale-85"
+                style={{
+                  width: windowWidth() < 768 ? '600px' : '800px',
+                  transform: mobileScale() < 1 ? `scale(${mobileScale()})` : undefined,
+                }}
+              >
+                <ShareablePlanCard
+                  plan={props.plan()}
+                  inputs={props.inputs()}
+                  scenario={props.scenario()}
+                  selectedTargets={props.selectedTargets()}
+                  sortedTargets={props.sortedTargets()}
+                  accountName={profileName()}
+                  showAccountName={shareConfig().showAccountName}
+                  showProbability={shareConfig().showProbability}
+                  showScenario={shareConfig().showScenario}
+                  pattern={uiState.local.shareCardPattern}
+                />
               </div>
+            </div>
 
-              <div class="bg-zinc-950/50 flex flex-1 flex-col gap-6 overflow-auto lg:flex-row">
-                {/* Preview Area */}
-                <div class="flex flex-1 items-start justify-center overflow-hidden md:p-6 lg:min-h-[500px]">
-                  <div
-                    class="origin-top md:w-auto md:scale-85"
-                    style={{
-                      width: windowWidth() < 768 ? '600px' : '800px',
-                      transform: mobileScale() < 1 ? `scale(${mobileScale()})` : undefined,
-                    }}
-                  >
-                    <ShareablePlanCard
-                      plan={props.plan()}
-                      inputs={props.inputs()}
-                      scenario={props.scenario()}
-                      selectedTargets={props.selectedTargets()}
-                      groupedTargets={props.groupedTargets()}
-                      accountName={accountName()}
-                      showAccountName={shareConfig().showAccountName}
-                      showProbability={shareConfig().showProbability}
-                      showScenario={shareConfig().showScenario}
-                      pattern={uiState.local.shareCardPattern}
+            {/* Controls Sidebar */}
+            <div class="p-4 shrink-0 w-full space-y-6 md:p-6 lg:w-72">
+              <div class="flex flex-col gap-4">
+                <h4 class="text-sm text-zinc-400 tracking-wider font-medium uppercase">Configuration</h4>
+
+                <div class="space-y-3">
+                  <SwitchCard
+                    label="Show Account Name"
+                    checked={shareConfig().showAccountName}
+                    onChange={checked => setShareConfig(prev => ({ ...prev, showAccountName: checked }))}
+                  />
+                  <SwitchCard
+                    label="Show Stats"
+                    checked={shareConfig().showProbability}
+                    onChange={checked => setShareConfig(prev => ({ ...prev, showProbability: checked }))}
+                  />
+                  <SwitchCard
+                    label="Show Scenario"
+                    checked={shareConfig().showScenario}
+                    onChange={checked => setShareConfig(prev => ({ ...prev, showScenario: checked }))}
+                  />
+                </div>
+
+                {/* Pattern Selector */}
+                <div class="flex flex-col gap-2">
+                  <span class="text-xs text-zinc-500 font-medium">Background</span>
+                  <div class="flex gap-2">
+                    {/* None */}
+                    <button
+                      onClick={() => uiActions.setShareCardPattern('none')}
+                      class="border rounded-md flex shrink-0 h-10 w-10 transition-all items-center justify-center"
+                      classList={{
+                        'border-emerald-500 bg-emerald-500/20': uiState.local.shareCardPattern === 'none',
+                        'border-zinc-700 bg-zinc-900 hover:border-zinc-600': uiState.local.shareCardPattern !== 'none',
+                      }}
+                      title="No pattern"
+                    />
+
+                    {/* Diagonal */}
+                    <button
+                      onClick={() => uiActions.setShareCardPattern('diagonal')}
+                      class="border rounded-md flex shrink-0 h-10 w-10 transition-all items-center justify-center overflow-hidden"
+                      classList={{
+                        'border-emerald-500': uiState.local.shareCardPattern === 'diagonal',
+                        'border-zinc-700 hover:border-zinc-600': uiState.local.shareCardPattern !== 'diagonal',
+                      }}
+                      title="Diagonal dashes"
+                      style={{
+                        'background-color': uiState.local.shareCardPattern === 'diagonal' ? 'rgba(16, 185, 129, 0.15)' : '#18181b',
+                        'background-image': `url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 5l10 10' stroke='rgba(16, 185, 129, 0.4)' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E")`,
+                        'background-position': '-1px -1px',
+                      }}
+                    />
+
+                    {/* Dots */}
+                    <button
+                      onClick={() => uiActions.setShareCardPattern('dots')}
+                      class="border rounded-md flex shrink-0 h-10 w-10 transition-all items-center justify-center overflow-hidden"
+                      classList={{
+                        'border-emerald-500': uiState.local.shareCardPattern === 'dots',
+                        'border-zinc-700 hover:border-zinc-600': uiState.local.shareCardPattern !== 'dots',
+                      }}
+                      title="Dots"
+                      style={{
+                        'background-color': uiState.local.shareCardPattern === 'dots' ? 'rgba(16, 185, 129, 0.15)' : '#18181b',
+                        'background-image': `url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='10' cy='10' r='1.5' fill='rgba(16, 185, 129, 0.4)'/%3E%3C/svg%3E")`,
+                        'background-position': '-1px -1px',
+                      }}
+                    />
+
+                    {/* Plus */}
+                    <button
+                      onClick={() => uiActions.setShareCardPattern('plus')}
+                      class="border rounded-md flex shrink-0 h-10 w-10 transition-all items-center justify-center overflow-hidden"
+                      classList={{
+                        'border-emerald-500': uiState.local.shareCardPattern === 'plus',
+                        'border-zinc-700 hover:border-zinc-600': uiState.local.shareCardPattern !== 'plus',
+                      }}
+                      title="Plus signs"
+                      style={{
+                        'background-color': uiState.local.shareCardPattern === 'plus' ? 'rgba(16, 185, 129, 0.15)' : '#18181b',
+                        'background-image': `url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M10 6v8M6 10h8' stroke='rgba(16, 185, 129, 0.4)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E")`,
+                        'background-position': '-1px -1px',
+                      }}
                     />
                   </div>
                 </div>
+              </div>
 
-                {/* Controls Sidebar */}
-                <div class="p-4 shrink-0 w-full space-y-6 md:p-6 lg:w-72">
-                  <div class="flex flex-col gap-4">
-                    <h4 class="text-sm text-zinc-400 tracking-wider font-medium uppercase">Configuration</h4>
+              <div class="pt-4 flex flex-wrap gap-2">
+                <Button
+                  variant="green"
+                  onClick={() => generateImage('download')}
+                  disabled={generating()}
+                  class="inline-flex gap-2 items-center"
+                >
+                  <Show when={generating()} fallback={<i class="i-ph:download-simple-bold size-4" />}>
+                    <i class="i-gg:spinner size-4 animate-spin" />
+                  </Show>
+                  Download
+                </Button>
 
-                    <div class="space-y-3">
-                      <SwitchCard
-                        label="Show Account Name"
-                        checked={shareConfig().showAccountName}
-                        onChange={checked => setShareConfig(prev => ({ ...prev, showAccountName: checked }))}
-                      />
-                      <SwitchCard
-                        label="Show Stats"
-                        checked={shareConfig().showProbability}
-                        onChange={checked => setShareConfig(prev => ({ ...prev, showProbability: checked }))}
-                      />
-                      <SwitchCard
-                        label="Show Scenario"
-                        checked={shareConfig().showScenario}
-                        onChange={checked => setShareConfig(prev => ({ ...prev, showScenario: checked }))}
-                      />
-                    </div>
-
-                    {/* Pattern Selector */}
-                    <div class="flex flex-col gap-2">
-                      <span class="text-xs text-zinc-500 font-medium">Background</span>
-                      <div class="flex gap-2">
-                        {/* None */}
-                        <button
-                          onClick={() => uiActions.setShareCardPattern('none')}
-                          class="border rounded-md flex shrink-0 h-10 w-10 transition-all items-center justify-center"
-                          classList={{
-                            'border-emerald-500 bg-emerald-500/20': uiState.local.shareCardPattern === 'none',
-                            'border-zinc-700 bg-zinc-900 hover:border-zinc-600': uiState.local.shareCardPattern !== 'none',
-                          }}
-                          title="No pattern"
-                        />
-
-                        {/* Diagonal */}
-                        <button
-                          onClick={() => uiActions.setShareCardPattern('diagonal')}
-                          class="border rounded-md flex shrink-0 h-10 w-10 transition-all items-center justify-center overflow-hidden"
-                          classList={{
-                            'border-emerald-500': uiState.local.shareCardPattern === 'diagonal',
-                            'border-zinc-700 hover:border-zinc-600': uiState.local.shareCardPattern !== 'diagonal',
-                          }}
-                          title="Diagonal dashes"
-                          style={{
-                            'background-color': uiState.local.shareCardPattern === 'diagonal' ? 'rgba(16, 185, 129, 0.15)' : '#18181b',
-                            'background-image': `url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 5l10 10' stroke='rgba(16, 185, 129, 0.4)' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E")`,
-                            'background-position': '-1px -1px',
-                          }}
-                        />
-
-                        {/* Dots */}
-                        <button
-                          onClick={() => uiActions.setShareCardPattern('dots')}
-                          class="border rounded-md flex shrink-0 h-10 w-10 transition-all items-center justify-center overflow-hidden"
-                          classList={{
-                            'border-emerald-500': uiState.local.shareCardPattern === 'dots',
-                            'border-zinc-700 hover:border-zinc-600': uiState.local.shareCardPattern !== 'dots',
-                          }}
-                          title="Dots"
-                          style={{
-                            'background-color': uiState.local.shareCardPattern === 'dots' ? 'rgba(16, 185, 129, 0.15)' : '#18181b',
-                            'background-image': `url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='10' cy='10' r='1.5' fill='rgba(16, 185, 129, 0.4)'/%3E%3C/svg%3E")`,
-                            'background-position': '-1px -1px',
-                          }}
-                        />
-
-                        {/* Plus */}
-                        <button
-                          onClick={() => uiActions.setShareCardPattern('plus')}
-                          class="border rounded-md flex shrink-0 h-10 w-10 transition-all items-center justify-center overflow-hidden"
-                          classList={{
-                            'border-emerald-500': uiState.local.shareCardPattern === 'plus',
-                            'border-zinc-700 hover:border-zinc-600': uiState.local.shareCardPattern !== 'plus',
-                          }}
-                          title="Plus signs"
-                          style={{
-                            'background-color': uiState.local.shareCardPattern === 'plus' ? 'rgba(16, 185, 129, 0.15)' : '#18181b',
-                            'background-image': `url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M10 6v8M6 10h8' stroke='rgba(16, 185, 129, 0.4)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E")`,
-                            'background-position': '-1px -1px',
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="pt-4 flex flex-wrap gap-2">
-                    <Button
-                      variant="green"
-                      onClick={() => generateImage('download')}
-                      disabled={generating()}
-                      class="inline-flex gap-2 items-center"
-                    >
-                      <Show when={generating()} fallback={<i class="i-ph:download-simple-bold size-4" />}>
-                        <i class="i-gg:spinner size-4 animate-spin" />
-                      </Show>
-                      Download
-                    </Button>
-
-                    <Button
-                      variant="gray"
-                      onClick={() => generateImage('copy')}
-                      disabled={generating()}
-                      class="inline-flex gap-2 items-center"
-                    >
-                      <Show when={copied()} fallback={<i class="i-ph:copy-simple-bold size-4" />}>
-                        <i class="i-ph:check-bold size-4" />
-                      </Show>
-                      {copied() ? 'Copied!' : 'Copy'}
-                    </Button>
-                  </div>
-                </div>
+                <Button
+                  variant="gray"
+                  onClick={() => generateImage('copy')}
+                  disabled={generating()}
+                  class="inline-flex gap-2 items-center"
+                >
+                  <Show when={copied()} fallback={<i class="i-ph:copy-simple-bold size-4" />}>
+                    <i class="i-ph:check-bold size-4" />
+                  </Show>
+                  {copied() ? 'Copied!' : 'Copy'}
+                </Button>
               </div>
             </div>
           </div>
-        </Show>
+        </Modal>
 
         <For each={props.plan().phases}>
           {(phase, index) => {

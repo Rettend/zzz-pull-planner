@@ -21,8 +21,15 @@ export interface ScrapedTarget {
 
 export interface VersionData {
   attribute?: string
+  attributeIconUrl?: string
   specialty?: string
+  specialtyIconUrl?: string
   rarity?: number
+}
+
+export interface MetaEntry {
+  name: string
+  iconUrl: string
 }
 
 export interface Env {

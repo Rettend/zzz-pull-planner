@@ -6,14 +6,17 @@ import { isBannerPast } from '~/lib/constants'
 import { describeLuckMode, describeScenario } from '~/lib/plan-view'
 import { computePhaseRanges } from '~/lib/planner'
 import { useGame } from '~/stores/game'
-import { useUIStore } from '~/stores/ui'
+import { useProfilesStore } from '~/stores/profiles'
 
 export function PlannerInputsPanel() {
-  const [ui, actions] = useUIStore()
+  const [, actions] = useProfilesStore()
   const game = useGame()
-  const inputs = createMemo(() => ui.local.plannerInputs)
-  const scenario = createMemo(() => ui.local.scenario)
-  const luckMode = createMemo(() => ui.local.plannerInputs.luckMode ?? 'realistic')
+  const currentProfile = createMemo(() => actions.currentProfile())
+  const settings = createMemo(() => currentProfile().settings)
+  const inputs = createMemo(() => settings().plannerInputs)
+  const scenario = createMemo(() => settings().scenario)
+  const planningMode = createMemo(() => settings().planningMode)
+  const luckMode = createMemo(() => inputs().luckMode ?? 'realistic')
 
   const activeBanners = createMemo(() => game.banners().filter(b => !isBannerPast(b)))
   const ranges = createMemo(() => computePhaseRanges(activeBanners()))
@@ -47,12 +50,12 @@ export function PlannerInputsPanel() {
         <NumberField
           label="Agent pity"
           min={0}
-          max={ui.local.planningMode === 's-rank' ? 89 : 9}
+          max={planningMode() === 's-rank' ? 89 : 9}
           {...numberInput(
             inputs,
             actions.setPlannerInput,
-            ui.local.planningMode === 's-rank' ? 'pityAgentStart' : 'pityAgentStartA',
-            { min: 0, max: ui.local.planningMode === 's-rank' ? 89 : 9 },
+            planningMode() === 's-rank' ? 'pityAgentStart' : 'pityAgentStartA',
+            { min: 0, max: planningMode() === 's-rank' ? 89 : 9 },
           )}
         />
         <SwitchCard
@@ -60,19 +63,19 @@ export function PlannerInputsPanel() {
           {...boolInput(
             inputs,
             actions.setPlannerInput,
-            ui.local.planningMode === 's-rank' ? 'guaranteedAgentStart' : 'guaranteedAgentStartA',
+            planningMode() === 's-rank' ? 'guaranteedAgentStart' : 'guaranteedAgentStartA',
           )}
         />
 
         <NumberField
           label="W-Engine pity"
           min={0}
-          max={ui.local.planningMode === 's-rank' ? 79 : 9}
+          max={planningMode() === 's-rank' ? 79 : 9}
           {...numberInput(
             inputs,
             actions.setPlannerInput,
-            ui.local.planningMode === 's-rank' ? 'pityEngineStart' : 'pityEngineStartA',
-            { min: 0, max: ui.local.planningMode === 's-rank' ? 79 : 9 },
+            planningMode() === 's-rank' ? 'pityEngineStart' : 'pityEngineStartA',
+            { min: 0, max: planningMode() === 's-rank' ? 79 : 9 },
           )}
         />
         <SwitchCard
@@ -80,7 +83,7 @@ export function PlannerInputsPanel() {
           {...boolInput(
             inputs,
             actions.setPlannerInput,
-            ui.local.planningMode === 's-rank' ? 'guaranteedEngineStart' : 'guaranteedEngineStartA',
+            planningMode() === 's-rank' ? 'guaranteedEngineStart' : 'guaranteedEngineStartA',
           )}
         />
       </div>

@@ -8,6 +8,7 @@
     "paths": {
       "~/*": ["./src/*"]
     },
+    "resolveJsonModule": true,
     "types": [
       "vinxi/types/client",
       "@cloudflare/workers-types",

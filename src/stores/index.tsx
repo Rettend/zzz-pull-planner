@@ -1,34 +1,23 @@
-import type { ParentProps } from 'solid-js'
-import { createMemo, Show } from 'solid-js'
-import { AccountsStoreProvider, useAccountsStore } from './accounts'
+import type { Accessor, ParentProps } from 'solid-js'
+import type { GameData } from '~/remote/game'
+import type { ProfileData } from '~/types/profile'
 import { GameDataProvider } from './game'
-import { TargetsStoreProvider } from './targets'
+import { ProfilesStoreProvider } from './profiles'
 import { UIStoreProvider } from './ui'
 
-export function RootStoreProvider(props: ParentProps) {
-  return (
-    <GameDataProvider>
-      <AccountsStoreProvider>
-        <AccountScopedProviders>
-          {props.children}
-        </AccountScopedProviders>
-      </AccountsStoreProvider>
-    </GameDataProvider>
-  )
+interface RootStoreProviderProps extends ParentProps {
+  gameData: Accessor<GameData | undefined>
+  profiles: Accessor<ProfileData[] | undefined>
 }
 
-function AccountScopedProviders(props: ParentProps) {
-  const [accounts] = useAccountsStore()
-  const accountId = createMemo(() => accounts.currentId)
+export function RootStoreProvider(props: RootStoreProviderProps) {
   return (
-    <Show when={accountId()} keyed>
-      {id => (
-        <UIStoreProvider accountId={id}>
-          <TargetsStoreProvider accountId={id}>
-            {props.children}
-          </TargetsStoreProvider>
+    <GameDataProvider data={props.gameData}>
+      <ProfilesStoreProvider serverProfiles={props.profiles}>
+        <UIStoreProvider>
+          {props.children}
         </UIStoreProvider>
-      )}
-    </Show>
+      </ProfilesStoreProvider>
+    </GameDataProvider>
   )
 }

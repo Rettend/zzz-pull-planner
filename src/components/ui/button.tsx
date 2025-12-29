@@ -1,7 +1,7 @@
 import type { JSX } from 'solid-js'
 import { createMemo, splitProps } from 'solid-js'
 
-export type ButtonVariant = 'gray' | 'green' | 'blue' | 'red'
+export type ButtonVariant = 'gray' | 'green' | 'darkGreen' | 'blue' | 'red'
 
 export interface ButtonProps extends JSX.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant
@@ -16,6 +16,10 @@ const variantStyles: Record<ButtonVariant, { base: string, hover: string }> = {
   green: {
     base: 'border-emerald-500 bg-emerald-600/30 text-emerald-300',
     hover: 'hover:bg-emerald-600/40',
+  },
+  darkGreen: {
+    base: 'border-emerald-800 bg-emerald-900/40 text-emerald-300',
+    hover: 'hover:bg-emerald-900/50',
   },
   blue: {
     base: 'border-sky-600 bg-sky-600/30 text-sky-300',

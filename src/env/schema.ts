@@ -5,6 +5,11 @@ export const serverScheme = z.object({
   CLOUDFLARE_ACCOUNT_ID: z.string(),
   CLOUDFLARE_DATABASE_ID: z.string(),
   CLOUDFLARE_D1_TOKEN: z.string(),
+  AUTH_SECRET: z.string(),
+  GOOGLE_CLIENT_ID: z.string(),
+  GOOGLE_CLIENT_SECRET: z.string(),
+  DISCORD_CLIENT_ID: z.string(),
+  DISCORD_CLIENT_SECRET: z.string(),
 })
 
 export const clientScheme = z.object({

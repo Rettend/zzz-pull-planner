@@ -7,9 +7,9 @@ export function normalizeName(name: string): string {
 
 export function parseDate(dateStr: string): Date {
   const date = new Date(dateStr)
-  if (Number.isNaN(date.getTime())) {
+  if (Number.isNaN(date.getTime()))
     throw new TypeError(`Invalid date string: ${dateStr}`)
-  }
+
   return date
 }
 

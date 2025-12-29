@@ -1,19 +1,20 @@
-import type { Accessor, ParentComponent } from 'solid-js'
+import type { Accessor, ParentProps } from 'solid-js'
 import type { AgentMeta, Attribute, Banner, Specialty, WEngineMeta } from '~/lib/constants'
-import { createAsync, revalidate } from '@solidjs/router'
+import type { GameData } from '~/remote/game'
+import { revalidate } from '@solidjs/router'
 import { createContext, onMount, useContext } from 'solid-js'
 import { clientEnv } from '~/env/client'
-import { ATTRIBUTE_ICON, SPECIALTY_ICON, UNKNOWN_ICON } from '~/lib/constants'
-import { getGameData } from '~/lib/data'
+import { UNKNOWN_ICON } from '~/lib/constants'
+import { getGameData } from '~/remote/game'
 
 function getFullIconUrl(iconPath?: string): string | undefined {
-  if (!iconPath) {
+  if (!iconPath)
     return undefined
-  }
+
   const baseUrl = clientEnv.VITE_R2_PUBLIC_URL
-  if (!baseUrl) {
+  if (!baseUrl)
     return iconPath
-  }
+
   return `${baseUrl}/${iconPath}`
 }
 
@@ -28,14 +29,18 @@ interface GameContextType {
 
 const GameContext = createContext<GameContextType>()
 
-export const GameDataProvider: ParentComponent = (props) => {
-  const data = createAsync(() => getGameData())
+interface GameDataProviderProps extends ParentProps {
+  data: Accessor<GameData | undefined>
+}
+
+export function GameDataProvider(props: GameDataProviderProps) {
+  // Data is loaded at route level and passed in - no createAsync here!
+  const data = () => props.data()
 
   onMount(() => {
     const d = data()
-    if (d && d.banners.length === 0) {
+    if (d && d.banners.length === 0)
       revalidate(getGameData.key)
-    }
   })
 
   const banners = () => {
@@ -119,11 +124,19 @@ export const GameDataProvider: ParentComponent = (props) => {
   }
 
   const resolveAttributeIcon = (attr?: string) => {
-    return attr ? (ATTRIBUTE_ICON[attr as Attribute] ?? UNKNOWN_ICON) : UNKNOWN_ICON
+    const d = data()
+    if (attr && d?.attributes[attr]?.icon)
+      return getFullIconUrl(d.attributes[attr].icon) ?? UNKNOWN_ICON
+
+    return UNKNOWN_ICON
   }
 
   const resolveSpecialtyIcon = (spec?: string) => {
-    return spec ? (SPECIALTY_ICON[spec as Specialty] ?? UNKNOWN_ICON) : UNKNOWN_ICON
+    const d = data()
+    if (spec && d?.specialties[spec]?.icon)
+      return getFullIconUrl(d.specialties[spec].icon) ?? UNKNOWN_ICON
+
+    return UNKNOWN_ICON
   }
 
   return (

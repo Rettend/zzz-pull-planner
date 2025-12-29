@@ -305,9 +305,8 @@ export function computePlan(
         let pSuccess = winRate
 
         const state = t.channel === 'agent' ? agentStateA : engineStateA
-        if (state.guaranteed) {
+        if (state.guaranteed)
           pSuccess = 0.5
-        }
 
         if (luckMode === 'best')
           pSuccess = 1.0
@@ -461,9 +460,8 @@ export function computePlan(
 
       if (funded) {
         remainingEnd = newRemainingEnd
-        if (affordableStart) {
+        if (affordableStart)
           remainingStart = newRemainingStart
-        }
 
         if (isAgent) {
           spentAgents += cost

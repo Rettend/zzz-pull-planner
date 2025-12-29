@@ -1,6 +1,6 @@
 import type { SelectedTargetInput } from '~/lib/plan-view'
 import type { PhasePlan, PlannerInputs, Scenario } from '~/lib/planner'
-import type { TargetAggregate } from '~/stores/targets'
+import type { ProfileTarget } from '~/stores/profiles'
 import { createMemo, For, Show } from 'solid-js'
 import { TargetIconCard } from '~/components/TargetIconCard'
 import { createFundedMindscapes } from '~/lib/plan-view'
@@ -16,7 +16,7 @@ interface ShareablePlanCardProps {
   inputs: PlannerInputs
   scenario: Scenario
   selectedTargets: SelectedTargetInput[]
-  groupedTargets: TargetAggregate[]
+  sortedTargets: ProfileTarget[]
 }
 
 export function ShareablePlanCard(props: ShareablePlanCardProps) {
@@ -32,12 +32,11 @@ export function ShareablePlanCard(props: ShareablePlanCardProps) {
     const list: { name: string, level: number, channel: 'agent' | 'engine' }[] = []
     const funded = fundedMindscapes()
 
-    for (const t of props.groupedTargets) {
-      if (funded.has(t.name)) {
-        const level = funded.get(t.name)!
-        if (level >= -1) {
-          list.push({ name: t.name, level, channel: t.channel })
-        }
+    for (const t of props.sortedTargets) {
+      if (funded.has(t.targetId)) {
+        const level = funded.get(t.targetId)!
+        if (level >= -1)
+          list.push({ name: t.targetId, level, channel: t.channelType })
       }
     }
     return list
@@ -47,13 +46,12 @@ export function ShareablePlanCard(props: ShareablePlanCardProps) {
     const list: { name: string, current: number, desired: number, channel: 'agent' | 'engine' }[] = []
     const funded = fundedMindscapes()
 
-    for (const t of props.groupedTargets) {
-      const current = funded.get(t.name) ?? -1
+    for (const t of props.sortedTargets) {
+      const current = funded.get(t.targetId) ?? -1
       const desired = t.count - 1
 
-      if (current < desired) {
-        list.push({ name: t.name, current, desired, channel: t.channel })
-      }
+      if (current < desired)
+        list.push({ name: t.targetId, current, desired, channel: t.channelType })
     }
     return list
   })
@@ -160,7 +158,7 @@ export function ShareablePlanCard(props: ShareablePlanCardProps) {
           <Show when={props.showProbability}>
             <div class="flex gap-4">
               <div class="px-4 py-2 text-center border border-zinc-700/50 rounded-lg bg-zinc-700/30 backdrop-blur-sm">
-                <div class="text-xs text-zinc-500 tracking-wide font-medium uppercase">Pulls</div>
+                <div class="text-xs text-zinc-500 tracking-wide font-medium uppercase">Total</div>
                 <div class="text-xl text-white font-bold tabular-nums">{Math.round(totalPulls())}</div>
               </div>
               <div class="px-4 py-2 text-center border border-zinc-700/50 rounded-lg bg-zinc-700/30 backdrop-blur-sm">

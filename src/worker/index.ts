@@ -27,9 +27,8 @@ export default {
       const authHeader = request.headers.get('Authorization')
       const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : url.searchParams.get('token')
 
-      if (!env.SCRAPER_AUTH_TOKEN || token !== env.SCRAPER_AUTH_TOKEN) {
+      if (!env.SCRAPER_AUTH_TOKEN || token !== env.SCRAPER_AUTH_TOKEN)
         return new Response('Unauthorized', { status: 401 })
-      }
 
       const force = url.searchParams.get('force') === 'true'
       const db = drizzle(env.DB)

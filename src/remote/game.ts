@@ -1,7 +1,7 @@
 import { query } from '@solidjs/router'
 import { asc, desc } from 'drizzle-orm'
-import { useDb } from '~/db/client'
-import { banners, bannerTargets } from '~/db/schema'
+import { attributes, banners, bannerTargets, specialties } from '~/db/schema'
+import { optionalDb } from '~/remote/utils/server'
 
 export interface GameData {
   banners: Array<{
@@ -30,31 +30,42 @@ export interface GameData {
     specialty?: string
     icon?: string
   }>
+  attributes: Record<string, { icon?: string }>
+  specialties: Record<string, { icon?: string }>
 }
+
+// #region GET Game Data
+const getGameDataId = 'game-data'
 
 export const getGameData = query(async (): Promise<GameData> => {
   'use server'
-  const db = await useDb()
+  const db = await optionalDb()
 
   if (!db) {
     return {
       banners: [],
       agents: {},
       wEngines: {},
+      attributes: {},
+      specialties: {},
     }
   }
 
-  const allBanners = await db.query.banners.findMany({
-    orderBy: [asc(banners.startUtc)],
-    with: {
-      bannerTargets: {
-        with: {
-          target: true,
+  const [allBanners, allAttributes, allSpecialties] = await Promise.all([
+    db.query.banners.findMany({
+      orderBy: [asc(banners.startUtc)],
+      with: {
+        bannerTargets: {
+          with: {
+            target: true,
+          },
+          orderBy: [desc(bannerTargets.isFeatured), asc(bannerTargets.order)],
         },
-        orderBy: [desc(bannerTargets.isFeatured), asc(bannerTargets.order)],
       },
-    },
-  })
+    }),
+    db.select().from(attributes).all(),
+    db.select().from(specialties).all(),
+  ])
 
   // Track first appearance of each featured character to detect reruns
   const firstAppearance = new Map<string, number>()
@@ -62,9 +73,8 @@ export const getGameData = query(async (): Promise<GameData> => {
     const featuredEntry = b.bannerTargets.find((t: any) => t.isFeatured && t.target.rarity === 5)
     if (featuredEntry) {
       const targetId = featuredEntry.target.id
-      if (!firstAppearance.has(targetId)) {
+      if (!firstAppearance.has(targetId))
         firstAppearance.set(targetId, b.startUtc)
-      }
     }
   }
 
@@ -72,15 +82,20 @@ export const getGameData = query(async (): Promise<GameData> => {
     banners: [],
     agents: {},
     wEngines: {},
+    attributes: Object.fromEntries(
+      allAttributes.map(a => [a.id, { icon: a.iconPath ?? undefined }]),
+    ),
+    specialties: Object.fromEntries(
+      allSpecialties.map(s => [s.id, { icon: s.iconPath ?? undefined }]),
+    ),
   }
 
   const nowSeconds = Math.floor(Date.now() / 1000)
 
   for (const b of allBanners) {
     // Filter out past banners
-    if (b.endUtc < nowSeconds) {
+    if (b.endUtc < nowSeconds)
       continue
-    }
 
     // Find the featured target (prioritize S-rank)
     const featuredEntry = b.bannerTargets.find((t: any) => t.isFeatured && t.target.rarity === 5)
@@ -141,15 +156,10 @@ export const getGameData = query(async (): Promise<GameData> => {
   }
 
   // Sort banners: for concurrent banners (same start time), order by:
-  // 1. New agent banners
-  // 2. New engine banners
-  // 3. Rerun agent banners
-  // 4. Rerun engine banners
   data.banners.sort((a, b) => {
     // First sort by start date
-    if (a.start !== b.start) {
+    if (a.start !== b.start)
       return a.start.localeCompare(b.start)
-    }
 
     // For concurrent banners, determine if each is a rerun
     const aFirstAppearance = firstAppearance.get(a.featured)
@@ -175,8 +185,15 @@ export const getGameData = query(async (): Promise<GameData> => {
       return 4
     }
 
-    return getOrder(a, aIsRerun) - getOrder(b, bIsRerun)
+    const aOrder = getOrder(a, aIsRerun)
+    const bOrder = getOrder(b, bIsRerun)
+
+    if (aOrder !== bOrder)
+      return aOrder - bOrder
+
+    return a.title.localeCompare(b.title)
   })
 
   return data
-}, 'game-data')
+}, getGameDataId)
+// #endregion

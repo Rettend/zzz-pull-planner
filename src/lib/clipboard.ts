@@ -109,9 +109,8 @@ export function formatPlanCopyText(
     lines.push(`- Not funded yet: ${missed.join(', ')}`)
 
   plan.phases.forEach((phase, idx) => {
-    if ((phase.shortfallEnd ?? 0) > 0) {
+    if ((phase.shortfallEnd ?? 0) > 0)
       lines.push(`- You would need ${formatNumber(phase.shortfallEnd ?? 0)} more pulls at the end of Phase ${idx + 1} to fund all selections up to that point.`)
-    }
   })
 
   return lines.join('\n')

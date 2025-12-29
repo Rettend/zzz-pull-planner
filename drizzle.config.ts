@@ -14,4 +14,5 @@ export default defineConfig({
     token: serverEnv.CLOUDFLARE_D1_TOKEN,
   },
   out: 'drizzle',
+  casing: 'snake_case',
 })

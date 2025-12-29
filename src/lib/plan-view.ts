@@ -1,6 +1,6 @@
 import type { Banner, ChannelType } from '~/lib/constants'
 import type { PhasePlan, PlannerInputs, Scenario } from '~/lib/planner'
-import type { TargetAggregate } from '~/stores/targets'
+import type { ProfileTarget } from '~/stores/profiles'
 import type { BreakdownPart } from '~/utils/plan'
 import { computeChannelBreakdown } from '~/utils/plan'
 
@@ -41,9 +41,8 @@ export function phaseOfName(banners: Banner[], name: string, ranges: string[]): 
   // Check A-rank (featuredARanks) - use latest banner if appears on multiple
   let aRankBanner: Banner | undefined
   for (const b of banners) {
-    if (b.featuredARanks?.includes(name)) {
+    if (b.featuredARanks?.includes(name))
       aRankBanner = b // Keep updating to get the latest
-    }
   }
 
   if (aRankBanner) {
@@ -107,33 +106,33 @@ export function createFundedMindscapes(plan: PhasePlan): Map<string, number> {
 }
 
 export function computeFundingSummary(params: {
-  groupedTargets: TargetAggregate[]
+  sortedTargets: ProfileTarget[]
   funded: Map<string, number>
   channel: ChannelType
 }): FundingSummary {
-  const { groupedTargets, funded, channel } = params
+  const { sortedTargets, funded, channel } = params
   const fundedList: string[] = []
   const missedList: string[] = []
 
-  for (const target of groupedTargets.filter(t => t.channel === channel)) {
-    const fundedMax = funded.get(target.name) ?? -1
+  for (const target of sortedTargets.filter(t => t.channelType === channel)) {
+    const fundedMax = funded.get(target.targetId) ?? -1
     const desiredMax = target.count - 1
-    if (funded.has(target.name)) {
-      fundedList.push(fundedMax <= 0 ? target.name : `${target.name} M${fundedMax}`)
-    }
+    if (funded.has(target.targetId))
+      fundedList.push(fundedMax <= 0 ? target.targetId : `${target.targetId} M${fundedMax}`)
+
     if (desiredMax < 0)
       continue
     if (fundedMax < desiredMax) {
       if (desiredMax === 0 || fundedMax < 0) {
-        missedList.push(target.name)
+        missedList.push(target.targetId)
         continue
       }
       const start = Math.max(0, fundedMax + 1)
       if (start > desiredMax) {
-        missedList.push(target.name)
+        missedList.push(target.targetId)
         continue
       }
-      missedList.push(`${target.name} M${start}-M${desiredMax}`)
+      missedList.push(`${target.targetId} M${start}-M${desiredMax}`)
     }
   }
 
@@ -214,9 +213,8 @@ export function channelBreakdownParts(params: {
       itemIdx++
     }
     else if (part.kind === 'first') {
-      if (!nextPart || nextPart.kind !== 'off') {
+      if (!nextPart || nextPart.kind !== 'off')
         itemIdx++
-      }
     }
   }
 

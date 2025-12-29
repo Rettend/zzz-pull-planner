@@ -85,8 +85,10 @@ export function firstSPmfFromHazard(h: number[]): number[] {
   }
   const sum = pmf.reduce((a, b) => a + b, 0)
   if (sum > 0 && Math.abs(1 - sum) > 1e-9) {
-    for (let i = 0; i < pmf.length; i++) pmf[i] /= sum
+    for (let i = 0; i < pmf.length; i++)
+      pmf[i] /= sum
   }
+
   return pmf
 }
 
@@ -132,8 +134,10 @@ export function convolveDiscrete(a: number[], b: number[]): number[] {
   }
   const sum = out.reduce((acc: number, v: number) => acc + v, 0)
   if (sum > 0 && Math.abs(1 - sum) > 1e-9) {
-    for (let i = 0; i < out.length; i++) out[i] /= sum
+    for (let i = 0; i < out.length; i++)
+      out[i] /= sum
   }
+
   return out
 }
 
@@ -163,8 +167,10 @@ export function featuredCostPmf(
   }
   const s = out.reduce((acc, v) => acc + v, 0)
   if (s > 0 && Math.abs(1 - s) > 1e-9) {
-    for (let i = 0; i < out.length; i++) out[i] /= s
+    for (let i = 0; i < out.length; i++)
+      out[i] /= s
   }
+
   return out
 }
 
@@ -193,9 +199,9 @@ export function geometricCostPmf(
 
   // k=1
   out = Array.from({ length: currentConvolved.length }, () => 0)
-  for (let i = 0; i < currentConvolved.length; i++) {
+  for (let i = 0; i < currentConvolved.length; i++)
     out[i] += currentConvolved[i] * currentProbN
-  }
+
   accumulatedProb += currentProbN
 
   // k=2..max
@@ -212,9 +218,8 @@ export function geometricCostPmf(
       out = newOut
     }
 
-    for (let i = 0; i < currentConvolved.length; i++) {
+    for (let i = 0; i < currentConvolved.length; i++)
       out[i] += currentConvolved[i] * pN
-    }
 
     accumulatedProb += pN
     k++
@@ -223,8 +228,10 @@ export function geometricCostPmf(
   // Normalize
   const s = out.reduce((acc, v) => acc + v, 0)
   if (s > 0) {
-    for (let i = 0; i < out.length; i++) out[i] /= s
+    for (let i = 0; i < out.length; i++)
+      out[i] /= s
   }
+
   return out
 }
 

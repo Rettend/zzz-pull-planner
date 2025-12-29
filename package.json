@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "vinxi dev --port 3101",
     "build": "bun --bun vinxi build",
-    "preview": "wrangler dev .output/server/index.mjs --assets .output/public",
+    "preview": "wrangler dev",
     "check": "tsgo --noEmit --skipLibCheck -p tsconfig.json",
     "lint": "eslint . --fix",
     "sync": "bun run scripts/sync-rules.ts",
@@ -26,6 +26,7 @@
     "update": "taze latest -wr"
   },
   "dependencies": {
+    "@rttnd/gau": "^1.2.5",
     "@solid-primitives/storage": "^4.3.3",
     "@solidjs/meta": "^0.29.4",
     "@solidjs/router": "^0.15.4",

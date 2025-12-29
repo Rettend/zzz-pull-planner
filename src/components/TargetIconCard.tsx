@@ -1,6 +1,6 @@
 import type { Component } from 'solid-js'
 import { createMemo, Show } from 'solid-js'
-import { ICON_AGENT_RANK_A, ICON_AGENT_RANK_S, ICON_ITEM_RANK_A, ICON_ITEM_RANK_S, resolveAttributeIcon } from '~/lib/constants'
+import { ICON_AGENT_RANK_A, ICON_AGENT_RANK_S, ICON_ITEM_RANK_A, ICON_ITEM_RANK_S } from '~/lib/constants'
 import { useGame } from '~/stores/game'
 
 const CARD_WIDTH = 100 // px
@@ -28,7 +28,7 @@ export const TargetIconCard: Component<{
   const isAgent = createMemo(() => Boolean(agent()))
 
   const bg = createMemo(() => agent()?.icon ?? wengine()?.icon)
-  const attrIcon = createMemo(() => agent() ? resolveAttributeIcon(agent()!.attribute) : undefined)
+  const attrIcon = createMemo(() => agent() ? game.resolveAttributeIcon(agent()!.attribute) : undefined)
   const specIcon = createMemo(() => game.resolveSpecialtyIcon((agent() ?? wengine())?.specialty))
   const borderClass = createMemo(() => {
     if (props.met === true)
@@ -51,9 +51,9 @@ export const TargetIconCard: Component<{
   const rankIcon = createMemo(() => {
     const meta = agent() ?? wengine()
     const rarity = meta?.rarity ?? 5
-    if (isAgent()) {
+    if (isAgent())
       return rarity === 5 ? ICON_AGENT_RANK_S : ICON_AGENT_RANK_A
-    }
+
     return rarity === 5 ? ICON_ITEM_RANK_S : ICON_ITEM_RANK_A
   })
 

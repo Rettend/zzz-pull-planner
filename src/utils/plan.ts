@@ -74,9 +74,8 @@ export function computeChannelBreakdown(
       const winRate = 0.25
       let pSuccess = winRate
 
-      if (guaranteedA) {
+      if (guaranteedA)
         pSuccess = 0.5
-      }
 
       if (luckMode === 'best')
         pSuccess = 1.0
