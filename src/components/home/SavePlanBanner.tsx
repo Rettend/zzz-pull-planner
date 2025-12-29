@@ -1,4 +1,4 @@
-import type { ProfileTarget } from '~/stores/profiles'
+import type { ProfileTarget } from '~/types/profile'
 import { createMemo } from 'solid-js'
 import { SignInDropdown } from '~/components/SignInDropdown'
 import { Button } from '~/components/ui/button'

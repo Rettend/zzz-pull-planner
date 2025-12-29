@@ -1,6 +1,6 @@
 import type { SelectedTargetInput } from '~/lib/plan-view'
-import type { PhasePlan, PlannerInputs, Scenario } from '~/lib/planner'
-import type { ProfileTarget } from '~/stores/profiles'
+import type { PhasePlan, PlannerSettings, Scenario } from '~/lib/planner'
+import type { ProfileTarget } from '~/types/profile'
 import { createMemo, For, Show } from 'solid-js'
 import { TargetIconCard } from '~/components/TargetIconCard'
 import { createFundedMindscapes } from '~/lib/plan-view'
@@ -13,7 +13,7 @@ interface ShareablePlanCardProps {
   pattern: 'diagonal' | 'dots' | 'plus' | 'none'
 
   plan: PhasePlan
-  inputs: PlannerInputs
+  inputs: PlannerSettings
   scenario: Scenario
   selectedTargets: SelectedTargetInput[]
   sortedTargets: ProfileTarget[]
@@ -24,7 +24,7 @@ export function ShareablePlanCard(props: ShareablePlanCardProps) {
   const fundedMindscapes = createMemo(() => createFundedMindscapes(props.plan))
 
   const totalPulls = createMemo(() => {
-    const income = (props.inputs.incomes || []).reduce((a, b) => a + b, 0)
+    const income = Object.values(props.inputs.phaseSettings).reduce((a, ps) => a + ps.income, 0)
     return props.inputs.pullsOnHand + income
   })
 
@@ -46,12 +46,21 @@ export function ShareablePlanCard(props: ShareablePlanCardProps) {
     const list: { name: string, current: number, desired: number, channel: 'agent' | 'engine' }[] = []
     const funded = fundedMindscapes()
 
+    const targetCounts = new Map<string, { channel: 'agent' | 'engine', count: number }>()
     for (const t of props.sortedTargets) {
-      const current = funded.get(t.targetId) ?? -1
-      const desired = t.count - 1
+      const existing = targetCounts.get(t.targetId)
+      if (existing)
+        existing.count += 1
+      else
+        targetCounts.set(t.targetId, { channel: t.channelType, count: 1 })
+    }
+
+    for (const [targetId, { channel, count }] of targetCounts) {
+      const current = funded.get(targetId) ?? -1
+      const desired = count - 1
 
       if (current < desired)
-        list.push({ name: t.targetId, current, desired, channel: t.channelType })
+        list.push({ name: targetId, current, desired, channel })
     }
     return list
   })

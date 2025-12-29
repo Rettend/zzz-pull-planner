@@ -3,9 +3,9 @@ import type { ChannelType } from '~/lib/constants'
 export const DRAFT_OAUTH_IMPORT_KEY = 'draft:oauth-import' as const
 
 export interface DraftOAuthTarget {
+  id: string
   targetId: string
   channelType: ChannelType
-  count: number
   order: number
 }
 
@@ -29,9 +29,9 @@ export function stashDraftOAuthImport(input: {
   const payload: DraftOAuthPayload = {
     name: input.name,
     targets: input.targets.map((t, i) => ({
+      id: t.id,
       targetId: String(t.targetId),
       channelType: t.channelType,
-      count: typeof t.count === 'number' ? t.count : 1,
       order: typeof t.order === 'number' ? t.order : i,
     })),
     createdAt: Date.now(),
@@ -69,9 +69,9 @@ export function loadDraftOAuthImport(): { name?: string, targets: DraftOAuthTarg
         && (t.channelType === 'agent' || t.channelType === 'engine'),
       )
       .map((t: any, i: number) => ({
+        id: typeof t.id === 'string' ? t.id : crypto.randomUUID(),
         targetId: t.targetId,
         channelType: t.channelType,
-        count: typeof t.count === 'number' ? t.count : 1,
         order: typeof t.order === 'number' ? t.order : i,
       }))
 

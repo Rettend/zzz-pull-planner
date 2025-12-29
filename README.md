@@ -16,6 +16,12 @@ The site is available at [zzz.rettend.me](https://zzz.rettend.me/)
   - Current pity for channels
   - Guarantee status (50/50 and 75/25 vs guaranteed)
 
+## 3 User Modes
+
+- Anon: data is only saved in memory, promoted to Guest when a profile is created
+- Guest: has a session, data stored in remote db, lose session = lose account, promoted to Member when connects Google/Discord
+- Member: logged in user, data is accessible from any device
+
 ## Tech Stack
 
 - **Frontend**: SolidJS, SolidStart, UnoCSS

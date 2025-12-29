@@ -1,15 +1,56 @@
 import type { Component } from 'solid-js'
 import type { Banner, ChannelType } from '~/lib/constants'
-import type { ProfileTarget } from '~/stores/profiles'
+import type { ProfileTarget } from '~/types/profile'
 import { createMemo, createSignal, For, Show } from 'solid-js'
 import { Portal } from 'solid-js/web'
 import { isBannerPast } from '~/lib/constants'
 import { computePlan, emptyPlan } from '~/lib/planner'
-
 import { useGame } from '~/stores/game'
 import { useProfilesStore } from '~/stores/profiles'
 import { useUIStore } from '~/stores/ui'
 import { TargetIconCard } from './TargetIconCard'
+
+interface TargetAggregate {
+  name: string
+  channel: ChannelType
+  priority: number
+  count: number
+}
+
+interface TargetEntry extends ProfileTarget {
+  mindscape: number
+}
+
+function computeMindscapes(targets: ProfileTarget[]): TargetEntry[] {
+  const sorted = [...targets].sort((a, b) => a.order - b.order)
+  const counts = new Map<string, number>()
+  return sorted.map((t) => {
+    const current = counts.get(t.targetId) ?? 0
+    counts.set(t.targetId, current + 1)
+    return { ...t, mindscape: current }
+  })
+}
+
+function aggregateTargets(targets: ProfileTarget[]): TargetAggregate[] {
+  if (!targets?.length)
+    return []
+  const sorted = [...targets].sort((a, b) => a.order - b.order)
+  const map = new Map<string, TargetAggregate>()
+  for (const entry of sorted) {
+    const existing = map.get(entry.targetId)
+    if (existing) {
+      existing.count += 1
+      continue
+    }
+    map.set(entry.targetId, {
+      name: entry.targetId,
+      channel: entry.channelType,
+      priority: entry.order,
+      count: 1,
+    })
+  }
+  return Array.from(map.values()).sort((a, b) => a.priority - b.priority)
+}
 
 export const TargetPicker: Component = () => {
   const [, actions] = useProfilesStore()
@@ -17,8 +58,9 @@ export const TargetPicker: Component = () => {
   const game = useGame()
 
   const currentProfile = createMemo(() => actions.currentProfile())
-  const settings = createMemo(() => currentProfile().settings)
-  const inputs = createMemo(() => settings().plannerInputs)
+  const settings = () => actions.currentSettings()
+  const phaseSettings = () => actions.currentPhaseSettings()
+  const inputs = createMemo(() => ({ ...settings(), phaseSettings: phaseSettings() }))
   const scenario = createMemo(() => settings().scenario)
   const planningMode = createMemo(() => settings().planningMode ?? 's-rank')
   const isARankMode = createMemo(() => planningMode() === 'a-rank')
@@ -36,36 +78,29 @@ export const TargetPicker: Component = () => {
     return map
   })
 
-  // Get current profile targets
-  const currentTargets = createMemo(() => currentProfile().targets ?? [])
+  const allEntries = createMemo(() => {
+    const targets = currentProfile().targets ?? []
+    return computeMindscapes(targets)
+  })
 
-  // Filter by planning mode
-  const filteredTargets = createMemo(() => {
-    return currentTargets().filter((t) => {
+  const aggregatedTargets = createMemo(() => aggregateTargets(currentProfile().targets ?? []))
+  const aggregatedMap = createMemo(() => {
+    const map = new Map<string, TargetAggregate>()
+    for (const entry of aggregatedTargets())
+      map.set(entry.name, entry)
+    return map
+  })
+
+  const visibleEntries = createMemo(() => {
+    return allEntries().filter((t) => {
       const meta = t.channelType === 'agent' ? game.resolveAgent(t.targetId) : game.resolveWEngine(t.targetId)
       const rarity = meta?.rarity ?? 5
       return isARankMode() ? rarity === 4 : rarity === 5
     })
   })
 
-  // Build a map for quick lookup of selected targets
-  const selectedMap = createMemo(() => {
-    const map = new Map<string, ProfileTarget>()
-    for (const t of filteredTargets())
-      map.set(t.targetId, t)
-
-    return map
-  })
-
-  // For planner calculation
   const selectedTargetsInput = createMemo(() => {
-    return filteredTargets().flatMap((t) => {
-      const entries = []
-      for (let i = 0; i < t.count; i++)
-        entries.push({ name: t.targetId, channel: t.channelType })
-
-      return entries
-    })
+    return visibleEntries().map(t => ({ name: t.targetId, channel: t.channelType }))
   })
 
   const plan = createMemo(() => {
@@ -77,8 +112,8 @@ export const TargetPicker: Component = () => {
     }
   })
 
-  const isSelected = (name: string) => selectedMap().has(name)
-  const findTarget = (name: string) => selectedMap().get(name)
+  const isSelected = (name: string) => aggregatedMap().has(name)
+  const findAggregate = (name: string) => aggregatedMap().get(name)
 
   const isFullyFunded = createMemo(() => {
     const funded = plan().fundedTargets
@@ -87,7 +122,7 @@ export const TargetPicker: Component = () => {
     for (const name of funded)
       fundedCounts.set(name, (fundedCounts.get(name) ?? 0) + 1)
 
-    const aggregates = selectedMap()
+    const aggregates = aggregatedMap()
 
     return (name: string) => {
       const target = aggregates.get(name)
@@ -99,7 +134,6 @@ export const TargetPicker: Component = () => {
     }
   })
 
-  // Drag state
   const [dragIndex, setDragIndex] = createSignal<number | null>(null)
   const [insertIndex, setInsertIndex] = createSignal<number | null>(null)
   const DRAG_HYSTERESIS_PX = 12
@@ -115,7 +149,7 @@ export const TargetPicker: Component = () => {
   })
   const nonDraggedCount = createMemo(() => {
     const d = dragIndex()
-    const n = filteredTargets().length
+    const n = visibleEntries().length
     return d == null ? n : Math.max(0, n - 1)
   })
 
@@ -143,7 +177,7 @@ export const TargetPicker: Component = () => {
     if (e.dataTransfer)
       e.dataTransfer.dropEffect = 'move'
     if (dragIndex() != null && insertIndex() == null)
-      setInsertIndex(filteredTargets().length)
+      setInsertIndex(visibleEntries().length)
   }
 
   const [touchTimeout, setTouchTimeout] = createSignal<number | null>(null)
@@ -245,16 +279,31 @@ export const TargetPicker: Component = () => {
   }
 
   function commitReorder(fromLocal: number, toLocal: number) {
-    const visible = filteredTargets()
+    const visible = visibleEntries()
+    const all = allEntries()
 
-    if (fromLocal < 0 || fromLocal >= visible.length)
+    const item = visible[fromLocal]
+    if (!item)
       return
-    if (toLocal < 0 || toLocal > visible.length)
-      return
-    if (fromLocal === toLocal)
+    const fromGlobal = all.findIndex(x => x.id === item.id)
+    if (fromGlobal === -1)
       return
 
-    actions.reorderTargets(fromLocal, toLocal)
+    let toGlobal: number
+    if (toLocal < visible.length) {
+      const targetItem = visible[toLocal]
+      toGlobal = all.findIndex(x => x.id === targetItem.id)
+    }
+    else {
+      const lastVisible = visible[visible.length - 1]
+      const lastGlobal = all.findIndex(x => x.id === lastVisible.id)
+      toGlobal = lastGlobal + 1
+    }
+
+    if (toGlobal === -1)
+      return
+
+    actions.reorderTargets(fromGlobal, toGlobal)
   }
 
   function onSelectedDrop(e: DragEvent) {
@@ -316,6 +365,16 @@ export const TargetPicker: Component = () => {
   function handleDecrement(name: string) {
     if (!isSelected(name))
       return
+
+    const target = findAggregate(name)
+    if (!target)
+      return
+
+    if (target.count <= 1) {
+      actions.removeTarget(name)
+      return
+    }
+
     actions.decrementMindscape(name)
   }
 
@@ -360,7 +419,7 @@ export const TargetPicker: Component = () => {
                   return (
                     <For each={uniqueTargets()}>
                       {({ name: targetName, channel, banner: b }) => {
-                        const target = () => findTarget(targetName)
+                        const target = () => findAggregate(targetName)
                         return (
                           <button
                             class="text-left w-fit"
@@ -399,7 +458,7 @@ export const TargetPicker: Component = () => {
         </For>
       </div>
 
-      {/* Selected */}
+      {/* Selected - Priority List */}
       <div class="space-y-2">
         <div class="text-sm text-emerald-200 font-semibold">Priority List</div>
         <div
@@ -407,7 +466,7 @@ export const TargetPicker: Component = () => {
           onDragOver={e => onSelectedDragOver(e)}
           onDrop={e => onSelectedDrop(e)}
         >
-          <For each={filteredTargets()}>
+          <For each={visibleEntries()}>
             {(t, i) => {
               const beforeIndex = () => {
                 const d = dragIndex()
@@ -454,15 +513,15 @@ export const TargetPicker: Component = () => {
                       />
                       <div class="text-xs text-emerald-200 font-bold px-1.5 py-0.5 border border-zinc-700 rounded bg-zinc-900/90 bottom-1 left-1 absolute backdrop-blur-sm">
                         M
-                        {t.count - 1}
+                        {t.mindscape}
                       </div>
                     </div>
                     <button
                       class="p-1 border border-zinc-700 rounded-full bg-zinc-900/90 opacity-0 flex size-8 shadow transition-all items-center justify-center absolute hover:border-red-500 hover:bg-red-600/80 group-hover:opacity-100 -right-2 -top-2"
-                      aria-label="Remove target"
+                      aria-label="Remove mindscape"
                       onClick={(e) => {
                         e.stopPropagation()
-                        actions.removeTarget(t.targetId)
+                        actions.removeEntry(t.id)
                       }}
                     >
                       <i class="i-ph:x-bold text-zinc-200 size-4" />
@@ -489,7 +548,7 @@ export const TargetPicker: Component = () => {
               transform: 'translate(-50%, -50%) scale(1.1)',
             }}
           >
-            <Show when={filteredTargets()[dragIndex()!]}>
+            <Show when={visibleEntries()[dragIndex()!]}>
               {item => (
                 <div class="shadow-2xl relative">
                   <TargetIconCard
@@ -499,7 +558,7 @@ export const TargetPicker: Component = () => {
                   />
                   <div class="text-xs text-emerald-200 font-bold px-1.5 py-0.5 border border-zinc-700 rounded bg-zinc-900/90 bottom-1 left-1 absolute backdrop-blur-sm">
                     M
-                    {item().count - 1}
+                    {item().mindscape}
                   </div>
                 </div>
               )}

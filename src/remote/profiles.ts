@@ -1,18 +1,19 @@
-import type { PlannerInputsData, ProfileData, ProfileSettingsData } from '~/types/profile'
+import type { PhaseSettings, Profile, ProfileSettings } from '~/types/profile'
 import { action, query } from '@solidjs/router'
 import { eq } from 'drizzle-orm'
 import { getRequestEvent } from 'solid-js/web'
 import { z } from 'zod'
-import { profiles, profileSettings, profileTargets, users } from '~/db/schema'
+import { profilePhaseSettings, profiles, profileSettings, profileTargets, users } from '~/db/schema'
 import { optionalUser, requireDb, requireUser } from '~/remote/utils/server'
+import { defaultSettings } from '~/types/profile'
 import { idSchema, parse } from '~/utils'
 
 // #region Schemas
 const channelTypeSchema = z.enum(['agent', 'engine'])
 const profileTargetSchema = z.object({
-  targetId: idSchema, // targets.id is a slug, but our ids are all strings
+  id: idSchema.optional(),
+  targetId: idSchema,
   channelType: channelTypeSchema,
-  count: z.number().int().min(0),
   order: z.number().int().min(0).optional(),
 })
 
@@ -20,33 +21,31 @@ const scenarioSchema = z.enum(['p50', 'p60', 'p75', 'p90', 'ev'])
 const planningModeSchema = z.enum(['s-rank', 'a-rank'])
 const luckModeSchema = z.enum(['best', 'realistic', 'worst'])
 
-const plannerInputsSchema: z.ZodType<PlannerInputsData> = z.object({
-  N: z.number().int().min(0),
+const profileSettingsSchema = z.object({
   pullsOnHand: z.number().int().min(0),
-  incomes: z.array(z.number().int().min(0)),
-  pityAgentStart: z.number().int().min(0),
-  guaranteedAgentStart: z.boolean(),
-  pityEngineStart: z.number().int().min(0),
-  guaranteedEngineStart: z.boolean(),
-  pityAgentStartA: z.number().int().min(0).optional(),
-  guaranteedAgentStartA: z.boolean().optional(),
-  pityEngineStartA: z.number().int().min(0).optional(),
-  guaranteedEngineStartA: z.boolean().optional(),
-  luckMode: luckModeSchema.optional(),
+  pityAgentS: z.number().int().min(0).max(89),
+  guaranteedAgentS: z.boolean(),
+  pityEngineS: z.number().int().min(0).max(79),
+  guaranteedEngineS: z.boolean(),
+  pityAgentA: z.number().int().min(0).max(9),
+  guaranteedAgentA: z.boolean(),
+  pityEngineA: z.number().int().min(0).max(9),
+  guaranteedEngineA: z.boolean(),
+  scenario: scenarioSchema,
+  planningMode: planningModeSchema,
+  luckMode: luckModeSchema,
 })
 
-const profileSettingsSchema: z.ZodType<ProfileSettingsData> = z.object({
-  plannerInputs: plannerInputsSchema,
-  scenario: scenarioSchema,
-  // JSON object keys are strings; we accept either and normalize later.
-  phaseTimings: z.record(z.string(), z.enum(['start', 'end'])),
-  planningMode: planningModeSchema,
+const phaseSettingsSchema = z.object({
+  income: z.number().int().min(0),
+  timing: z.enum(['start', 'end']),
 })
 
 const draftDataSchema = z.object({
   name: z.string().min(1).optional(),
   targets: z.array(profileTargetSchema),
   settings: profileSettingsSchema.optional(),
+  phaseSettings: z.record(z.string(), phaseSettingsSchema).optional(),
 })
 
 const createProfileSchema = z.object({
@@ -79,85 +78,45 @@ type GetProfileInput = z.infer<typeof getProfileSchema>
 type PromoteDraftToGuestInput = z.infer<typeof draftDataSchema>
 // #endregion
 
-// #region Settings Helpers
-function defaultPlannerInputs(): PlannerInputsData {
-  return {
-    N: 60,
-    pullsOnHand: 0,
-    incomes: [75, 75, 75, 75],
-    pityAgentStart: 0,
-    guaranteedAgentStart: false,
-    pityEngineStart: 0,
-    guaranteedEngineStart: false,
-    luckMode: 'realistic',
-  }
-}
-
-function defaultProfileSettings(): ProfileSettingsData {
-  return {
-    plannerInputs: defaultPlannerInputs(),
-    scenario: 'p60',
-    phaseTimings: {},
-    planningMode: 's-rank',
-  }
-}
-
-function safeJsonParse<T>(raw: string | null | undefined): T | null {
-  if (!raw)
-    return null
-  try {
-    return JSON.parse(raw) as T
-  }
-  catch {
-    return null
-  }
-}
-
-function normalizePhaseTimings(input: unknown): Record<number, 'start' | 'end'> {
-  if (!input || typeof input !== 'object')
-    return {}
-  const out: Record<number, 'start' | 'end'> = {}
-  for (const [k, v] of Object.entries(input as Record<string, any>)) {
-    const idx = Number(k)
-    if (!Number.isFinite(idx))
-      continue
-    if (v === 'start' || v === 'end')
-      out[idx] = v
-  }
-  return out
-}
-
-function normalizeSettingsFromDb(row: { plannerInputsJson?: string | null, scenario?: string | null, phaseTimingsJson?: string | null, planningMode?: string | null } | null | undefined): ProfileSettingsData {
-  const defaults = defaultProfileSettings()
+// #region Helpers
+function dbSettingsToProfile(row: typeof profileSettings.$inferSelect | null): ProfileSettings {
   if (!row)
-    return defaults
-
-  const parsedInputs = safeJsonParse<unknown>(row.plannerInputsJson ?? null)
-  const parsedTimings = safeJsonParse<unknown>(row.phaseTimingsJson ?? null)
-
-  const inputs = (() => {
-    const candidate = plannerInputsSchema.safeParse(parsedInputs)
-    return candidate.success ? candidate.data : defaults.plannerInputs
-  })()
-
-  const scenario = scenarioSchema.safeParse(row.scenario).success ? (row.scenario as ProfileSettingsData['scenario']) : defaults.scenario
-  const planningMode = planningModeSchema.safeParse(row.planningMode).success ? (row.planningMode as ProfileSettingsData['planningMode']) : defaults.planningMode
-  const phaseTimings = normalizePhaseTimings(parsedTimings)
-
-  return { plannerInputs: inputs, scenario, planningMode, phaseTimings }
+    return defaultSettings()
+  return {
+    pullsOnHand: row.pullsOnHand,
+    pityAgentS: row.pityAgentS,
+    guaranteedAgentS: row.guaranteedAgentS,
+    pityEngineS: row.pityEngineS,
+    guaranteedEngineS: row.guaranteedEngineS,
+    pityAgentA: row.pityAgentA,
+    guaranteedAgentA: row.guaranteedAgentA,
+    pityEngineA: row.pityEngineA,
+    guaranteedEngineA: row.guaranteedEngineA,
+    scenario: row.scenario as ProfileSettings['scenario'],
+    planningMode: row.planningMode as ProfileSettings['planningMode'],
+    luckMode: row.luckMode as ProfileSettings['luckMode'],
+  }
 }
 
-async function upsertProfileSettings(db: any, input: { profileId: string, settings: ProfileSettingsData }) {
+function dbPhaseSettingsToRecord(rows: (typeof profilePhaseSettings.$inferSelect)[]): Record<string, PhaseSettings> {
+  const result: Record<string, PhaseSettings> = {}
+  for (const row of rows) {
+    result[row.phaseRange] = {
+      income: row.income,
+      timing: row.timing as PhaseSettings['timing'],
+    }
+  }
+  return result
+}
+
+async function upsertProfileSettings(db: any, input: { profileId: string, settings: ProfileSettings }) {
   const existing = await db.query.profileSettings.findFirst({
     where: eq(profileSettings.profileId, input.profileId),
   })
 
   const values = {
     profileId: input.profileId,
-    plannerInputsJson: JSON.stringify(input.settings.plannerInputs),
-    scenario: input.settings.scenario,
-    phaseTimingsJson: JSON.stringify(input.settings.phaseTimings ?? {}),
-    planningMode: input.settings.planningMode,
+    ...input.settings,
   }
 
   if (!existing) {
@@ -166,8 +125,24 @@ async function upsertProfileSettings(db: any, input: { profileId: string, settin
   }
 
   await db.update(profileSettings)
-    .set(values)
+    .set(input.settings)
     .where(eq(profileSettings.profileId, input.profileId))
+}
+
+async function upsertProfilePhaseSettings(db: any, input: { profileId: string, phaseSettings: Record<string, PhaseSettings> }) {
+  // Delete existing phase settings for this profile
+  await db.delete(profilePhaseSettings).where(eq(profilePhaseSettings.profileId, input.profileId))
+
+  // Insert new ones
+  const rows = Object.entries(input.phaseSettings).map(([phaseRange, ps]) => ({
+    profileId: input.profileId,
+    phaseRange,
+    income: ps.income,
+    timing: ps.timing,
+  }))
+
+  if (rows.length > 0)
+    await db.insert(profilePhaseSettings).values(rows)
 }
 // #endregion
 
@@ -177,7 +152,7 @@ const getProfilesId = 'profiles:get'
 /**
  * Get all profiles for the current user
  */
-export const getProfiles = query(async (): Promise<ProfileData[]> => {
+export const getProfiles = query(async (): Promise<Profile[]> => {
   'use server'
   const user = await optionalUser()
   if (!user)
@@ -190,19 +165,21 @@ export const getProfiles = query(async (): Promise<ProfileData[]> => {
     with: {
       profileTargets: true,
       profileSettings: true,
+      profilePhaseSettings: true,
     },
   })
 
   return userProfiles.map(p => ({
     id: p.id,
     name: p.name,
-    targets: p.profileTargets.map(t => ({
+    targets: p.profileTargets.map((t: any) => ({
+      id: t.id,
       targetId: t.targetId,
       channelType: t.channelType,
-      count: t.count,
       order: t.order,
     })),
-    settings: normalizeSettingsFromDb(p.profileSettings),
+    settings: dbSettingsToProfile(p.profileSettings),
+    phaseSettings: dbPhaseSettingsToRecord(p.profilePhaseSettings ?? []),
   }))
 }, getProfilesId)
 // #endregion
@@ -213,7 +190,7 @@ const getProfileId = 'profile:get'
 /**
  * Get a single profile by ID (must belong to current user)
  */
-export const getProfile = query(async (raw: GetProfileInput): Promise<ProfileData | null> => {
+export const getProfile = query(async (raw: GetProfileInput): Promise<Profile | null> => {
   'use server'
   const user = await optionalUser()
   if (!user)
@@ -227,6 +204,7 @@ export const getProfile = query(async (raw: GetProfileInput): Promise<ProfileDat
     with: {
       profileTargets: true,
       profileSettings: true,
+      profilePhaseSettings: true,
     },
   })
 
@@ -237,13 +215,14 @@ export const getProfile = query(async (raw: GetProfileInput): Promise<ProfileDat
   return {
     id: profile.id,
     name: profile.name,
-    targets: profile.profileTargets.map(t => ({
+    targets: profile.profileTargets.map((t: any) => ({
+      id: t.id,
       targetId: t.targetId,
       channelType: t.channelType,
-      count: t.count,
       order: t.order,
     })),
-    settings: normalizeSettingsFromDb(profile.profileSettings),
+    settings: dbSettingsToProfile(profile.profileSettings),
+    phaseSettings: dbPhaseSettingsToRecord(profile.profilePhaseSettings ?? []),
   }
 }, getProfileId)
 // #endregion
@@ -265,13 +244,10 @@ export const createProfile = action(async (raw: CreateProfileInput): Promise<str
     name: input.name,
   }).returning()
 
-  // Create default settings row for SSR + cross-device sync.
+  // Create default settings row
   await db.insert(profileSettings).values({
     profileId: newProfile.id,
-    plannerInputsJson: JSON.stringify(defaultPlannerInputs()),
-    scenario: 'p60',
-    phaseTimingsJson: JSON.stringify({}),
-    planningMode: 's-rank',
+    ...defaultSettings(),
   })
 
   return newProfile.id
@@ -354,10 +330,10 @@ export const saveProfileTargets = action(async (raw: SaveProfileTargetsInput): P
   if (input.targets.length > 0) {
     await db.insert(profileTargets).values(
       input.targets.map((t, i) => ({
+        id: t.id ?? crypto.randomUUID(),
         profileId: input.profileId,
         targetId: t.targetId,
         channelType: t.channelType,
-        count: t.count,
         order: t.order ?? i,
       })),
     )
@@ -394,6 +370,35 @@ export const saveProfileSettings = action(async (raw: SaveProfileSettingsInput):
 }, saveProfileSettingsId)
 // #endregion
 
+// #region SAVE Profile Phase Settings
+const saveProfilePhaseSettingsId = 'profile-phase-settings:save'
+
+const saveProfilePhaseSettingsSchema = z.object({
+  profileId: idSchema,
+  phaseSettings: z.record(z.string(), phaseSettingsSchema),
+})
+type SaveProfilePhaseSettingsInput = z.infer<typeof saveProfilePhaseSettingsSchema>
+
+/**
+ * Upsert phase settings for a profile
+ */
+export const saveProfilePhaseSettings = action(async (raw: SaveProfilePhaseSettingsInput): Promise<void> => {
+  'use server'
+  const user = await requireUser()
+  const input = parse(saveProfilePhaseSettingsSchema, raw, saveProfilePhaseSettingsId)
+  const db = await requireDb()
+
+  // Verify ownership
+  const profile = await db.query.profiles.findFirst({
+    where: eq(profiles.id, input.profileId),
+  })
+  if (!profile || profile.userId !== user.id)
+    throw new Error('Profile not found')
+
+  await upsertProfilePhaseSettings(db, { profileId: input.profileId, phaseSettings: input.phaseSettings })
+}, saveProfilePhaseSettingsId)
+// #endregion
+
 // #region PROMOTE Draft to Guest
 const promoteDraftToGuestId = 'draft:promote-to-guest'
 
@@ -421,7 +426,6 @@ export const promoteDraftToGuest = action(async (raw: PromoteDraftToGuestInput):
 
   // 1. Create guest user
   const guestUser = await auth.createUser({
-    // Leave name empty, OAuth linking will populate it from the provider.
     name: null,
   })
 
@@ -436,24 +440,25 @@ export const promoteDraftToGuest = action(async (raw: PromoteDraftToGuestInput):
     name: draftData.name || 'Profile 1',
   }).returning()
 
-  // 3.5 Create profile settings (defaults or provided draft settings)
-  const settings = draftData.settings ?? defaultProfileSettings()
+  // 3.5 Create profile settings
+  const settings = draftData.settings ?? defaultSettings()
   await db.insert(profileSettings).values({
     profileId: newProfile.id,
-    plannerInputsJson: JSON.stringify(settings.plannerInputs),
-    scenario: settings.scenario,
-    phaseTimingsJson: JSON.stringify(settings.phaseTimings ?? {}),
-    planningMode: settings.planningMode,
+    ...settings,
   })
+
+  // 3.6 Create phase settings if provided
+  if (draftData.phaseSettings)
+    await upsertProfilePhaseSettings(db, { profileId: newProfile.id, phaseSettings: draftData.phaseSettings })
 
   // 4. Insert draft targets
   if (draftData.targets.length > 0) {
     await db.insert(profileTargets).values(
       draftData.targets.map((t, i) => ({
+        id: t.id ?? crypto.randomUUID(),
         profileId: newProfile.id,
         targetId: t.targetId,
         channelType: t.channelType,
-        count: t.count,
         order: t.order ?? i,
       })),
     )

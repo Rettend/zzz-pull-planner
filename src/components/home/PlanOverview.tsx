@@ -1,8 +1,8 @@
 import type { Accessor } from 'solid-js'
 import type { Banner } from '~/lib/constants'
 import type { SelectedTargetInput } from '~/lib/plan-view'
-import type { PhasePlan, PlannerInputs, Scenario } from '~/lib/planner'
-import type { ProfileTarget } from '~/stores/profiles'
+import type { PhasePlan, PhaseSettings, PlannerSettings, Scenario } from '~/lib/planner'
+import type { ProfileTarget } from '~/types/profile'
 import { toPng } from 'html-to-image'
 import { createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js'
 import { ShareablePlanCard } from '~/components/ShareablePlanCard'
@@ -22,12 +22,12 @@ import { PhaseHeader } from './PhaseHeader'
 interface PlanOverviewProps {
   banners: Accessor<Banner[]>
   plan: Accessor<PhasePlan>
-  inputs: Accessor<PlannerInputs>
+  inputs: Accessor<PlannerSettings>
   scenario: Accessor<Scenario>
   selectedTargets: Accessor<SelectedTargetInput[]>
   sortedTargets: Accessor<ProfileTarget[]>
-  phaseTimings: Accessor<Record<number, 'start' | 'end'>>
-  onPhaseTimingChange: (index: number, value: 'start' | 'end') => void
+  phaseSettings: Accessor<Record<string, PhaseSettings>>
+  onPhaseSettingsChange: (range: string, updates: Partial<PhaseSettings>) => void
   planningMode: Accessor<'s-rank' | 'a-rank'>
 }
 
@@ -191,12 +191,21 @@ export function PlanOverview(props: PlanOverviewProps) {
     const list: { name: string, current: number, desired: number, channel: 'agent' | 'engine' }[] = []
     const funded = fundedMindscapes()
 
+    const targetCounts = new Map<string, { channel: 'agent' | 'engine', count: number }>()
     for (const t of props.sortedTargets()) {
-      const current = funded.get(t.targetId) ?? -1
-      const desired = t.count - 1
+      const existing = targetCounts.get(t.targetId)
+      if (existing)
+        existing.count += 1
+      else
+        targetCounts.set(t.targetId, { channel: t.channelType, count: 1 })
+    }
+
+    for (const [targetId, { channel, count }] of targetCounts) {
+      const current = funded.get(targetId) ?? -1
+      const desired = count - 1
 
       if (current < desired)
-        list.push({ name: t.targetId, current, desired, channel: t.channelType })
+        list.push({ name: targetId, current, desired, channel })
     }
     return list
   })
@@ -454,7 +463,8 @@ export function PlanOverview(props: PlanOverviewProps) {
 
         <For each={props.plan().phases}>
           {(phase, index) => {
-            const timing = createMemo(() => props.phaseTimings()[index()] ?? 'end')
+            const range = phase.id
+            const timing = createMemo(() => props.phaseSettings()[range]?.timing ?? 'end')
             const isStart = createMemo(() => timing() === 'start')
             const budget = createMemo(() => Math.round(isStart() ? phase.startBudget : phase.endBudget))
             const success = createMemo(() => (isStart() ? (phase.successProbStart ?? 0) : (phase.successProbEnd ?? 0)))
@@ -462,7 +472,6 @@ export function PlanOverview(props: PlanOverviewProps) {
             const costs = createMemo(() => displayedCosts()[index()])
             const breakdown = createMemo(() => breakdowns()[index()])
 
-            const range = phase.id
             const title = createMemo(() => {
               const banner = props.banners().find(b => `${b.start}→${b.end}` === range)
               return banner ? (banner.title || `Phase ${index() + 1}`) : `Phase ${index() + 1}`
@@ -487,7 +496,7 @@ export function PlanOverview(props: PlanOverviewProps) {
                   success={success()}
                   successThreshold={successThreshold()}
                   timing={timing()}
-                  onTimingChange={t => props.onPhaseTimingChange(index(), t)}
+                  onTimingChange={t => props.onPhaseSettingsChange(range, { timing: t })}
                 />
 
                 <BudgetBar
@@ -520,7 +529,7 @@ export function PlanOverview(props: PlanOverviewProps) {
                     label="Agents cost"
                     value={costs()?.agent ?? 0}
                     affordable={isStart() ? phase.canAffordAgentStart : phase.canAffordAgentEnd}
-                    pityLabel={index() === 0 ? `-${Math.max(0, props.planningMode() === 's-rank' ? props.inputs().pityAgentStart : (props.inputs().pityAgentStartA ?? 0))}` : ''}
+                    pityLabel={index() === 0 ? `-${Math.max(0, props.planningMode() === 's-rank' ? props.inputs().pityAgentS : props.inputs().pityAgentA)}` : ''}
                     explanation={breakdown()?.agent ?? null}
                     title="Aggregated cost to secure selected Agents"
                   />
@@ -528,7 +537,7 @@ export function PlanOverview(props: PlanOverviewProps) {
                     label="Engines cost"
                     value={costs()?.engine ?? 0}
                     affordable={isStart() ? phase.canAffordEngineStart : phase.canAffordEngineEnd}
-                    pityLabel={index() === 0 ? `-${Math.max(0, props.planningMode() === 's-rank' ? props.inputs().pityEngineStart : (props.inputs().pityEngineStartA ?? 0))}` : ''}
+                    pityLabel={index() === 0 ? `-${Math.max(0, props.planningMode() === 's-rank' ? props.inputs().pityEngineS : props.inputs().pityEngineA)}` : ''}
                     explanation={breakdown()?.engine ?? null}
                     title="Aggregated cost to secure selected Engines"
                   />

@@ -1,4 +1,4 @@
-import type { PhasePlan, PlannerInputs, Scenario } from '~/lib/planner'
+import type { PhasePlan, PlannerSettings, Scenario } from '~/lib/planner'
 import { costAtScenario, costStatsFromPmf, featuredCostPmf, firstSPmfFromHazard, geometricCostPmf, getARankHazard, getDefaultHazard, hazardWithPityOffset } from '~/lib/probability'
 
 export type Channel = 'agent' | 'engine'
@@ -14,7 +14,7 @@ export interface ChannelBreakdownResult {
   total: number
 }
 
-export function getFeaturedProbability(luckMode: PlannerInputs['luckMode'], channel: Channel): number {
+export function getFeaturedProbability(luckMode: PlannerSettings['luckMode'], channel: Channel): number {
   const mode = luckMode ?? 'realistic'
   if (channel === 'agent')
     return mode === 'best' ? 1 : mode === 'worst' ? 0 : 0.5
@@ -26,7 +26,7 @@ export function computeChannelBreakdown(
   channel: Channel,
   plan: PhasePlan,
   scenario: Scenario,
-  inputs: PlannerInputs,
+  inputs: PlannerSettings,
   targetNames?: string[],
   checkRarity?: (name: string) => number,
 ): ChannelBreakdownResult | null {
@@ -50,10 +50,10 @@ export function computeChannelBreakdown(
   let guaranteedA = false
 
   if (phase === 0) {
-    pityS = channel === 'agent' ? inputs.pityAgentStart : inputs.pityEngineStart
-    guaranteedS = channel === 'agent' ? inputs.guaranteedAgentStart : inputs.guaranteedEngineStart
-    pityA = (channel === 'agent' ? inputs.pityAgentStartA : inputs.pityEngineStartA) ?? 0
-    guaranteedA = (channel === 'agent' ? inputs.guaranteedAgentStartA : inputs.guaranteedEngineStartA) ?? false
+    pityS = channel === 'agent' ? inputs.pityAgentS : inputs.pityEngineS
+    guaranteedS = channel === 'agent' ? inputs.guaranteedAgentS : inputs.guaranteedEngineS
+    pityA = channel === 'agent' ? inputs.pityAgentA : inputs.pityEngineA
+    guaranteedA = channel === 'agent' ? inputs.guaranteedAgentA : inputs.guaranteedEngineA
   }
   else {
     const prevPhase = plan.phases[phase - 1]

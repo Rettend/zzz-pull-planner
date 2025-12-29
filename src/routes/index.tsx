@@ -1,6 +1,6 @@
 import type { SelectedTargetInput } from '~/lib/plan-view'
-import type { PhasePlan } from '~/lib/planner'
-import type { ProfileTarget } from '~/stores/profiles'
+import type { PhasePlan, PlannerSettings } from '~/lib/planner'
+import type { ProfileTarget } from '~/types/profile'
 import { Link, Meta, Title } from '@solidjs/meta'
 import { createMemo, Show } from 'solid-js'
 import { ClientOnly } from '~/components/ClientOnly'
@@ -11,7 +11,6 @@ import { SavePlanBanner } from '~/components/home/SavePlanBanner'
 import { TargetPicker } from '~/components/TargetPicker'
 import { isBannerPast } from '~/lib/constants'
 import { computePlan, emptyPlan } from '~/lib/planner'
-
 import { useGame } from '~/stores/game'
 import { useProfilesStore } from '~/stores/profiles'
 import { useUIStore } from '~/stores/ui'
@@ -60,11 +59,10 @@ function HomeContent() {
   const [ui, uiActions] = useUIStore()
   const [profilesState, profileActions] = useProfilesStore()
   const game = useGame()
-  const currentProfile = createMemo(() => profileActions.currentProfile())
-  const settings = createMemo(() => currentProfile().settings)
-  const inputs = createMemo(() => settings().plannerInputs)
+  const settings = () => profileActions.currentSettings()
+  const phaseSettings = () => profileActions.currentPhaseSettings()
+  const inputs = createMemo<PlannerSettings>(() => ({ ...settings(), phaseSettings: phaseSettings() }))
   const scenario = createMemo(() => settings().scenario)
-  const phaseTimings = createMemo(() => settings().phaseTimings ?? {})
   const planningMode = createMemo(() => settings().planningMode ?? 's-rank')
 
   const activeBanners = createMemo(() => game.banners().filter(b => !isBannerPast(b)))
@@ -88,12 +86,7 @@ function HomeContent() {
   })
 
   const selectedTargets = createMemo<SelectedTargetInput[]>(() =>
-    filteredTargets().flatMap((t) => {
-      const entries: SelectedTargetInput[] = []
-      for (let i = 0; i < t.count; i++)
-        entries.push({ name: t.targetId, channel: t.channelType })
-      return entries
-    }),
+    filteredTargets().map(t => ({ name: t.targetId, channel: t.channelType })),
   )
 
   const sortedTargets = createMemo<ProfileTarget[]>(() =>
@@ -160,8 +153,8 @@ function HomeContent() {
               scenario={scenario}
               selectedTargets={selectedTargets}
               sortedTargets={sortedTargets}
-              phaseTimings={phaseTimings}
-              onPhaseTimingChange={profileActions.setPhaseTiming}
+              phaseSettings={phaseSettings}
+              onPhaseSettingsChange={(range, updates) => profileActions.setPhaseSettings(range, updates)}
               planningMode={planningMode}
             />
           </ClientOnly>

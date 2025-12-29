@@ -1,5 +1,5 @@
 import { relations } from 'drizzle-orm'
-import { accounts, banners, bannerTargets, profiles, profileSettings, profileTargets, targets, users } from './schema'
+import { accounts, banners, bannerTargets, profilePhaseSettings, profiles, profileSettings, profileTargets, targets, users } from './schema'
 
 // #region auth
 export const usersRelations = relations(users, ({ many }) => ({
@@ -24,6 +24,7 @@ export const profilesRelations = relations(profiles, ({ one, many }) => ({
     fields: [profiles.id],
     references: [profileSettings.profileId],
   }),
+  profilePhaseSettings: many(profilePhaseSettings),
 }))
 
 export const profileTargetsRelations = relations(profileTargets, ({ one }) => ({
@@ -36,6 +37,13 @@ export const profileTargetsRelations = relations(profileTargets, ({ one }) => ({
 export const profileSettingsRelations = relations(profileSettings, ({ one }) => ({
   profile: one(profiles, {
     fields: [profileSettings.profileId],
+    references: [profiles.id],
+  }),
+}))
+
+export const profilePhaseSettingsRelations = relations(profilePhaseSettings, ({ one }) => ({
+  profile: one(profiles, {
+    fields: [profilePhaseSettings.profileId],
     references: [profiles.id],
   }),
 }))

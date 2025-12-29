@@ -1,6 +1,6 @@
 import type { Banner, ChannelType } from '~/lib/constants'
-import type { PhasePlan, PlannerInputs, Scenario } from '~/lib/planner'
-import type { ProfileTarget } from '~/stores/profiles'
+import type { PhasePlan, PlannerSettings, Scenario } from '~/lib/planner'
+import type { ProfileTarget } from '~/types/profile'
 import type { BreakdownPart } from '~/utils/plan'
 import { computeChannelBreakdown } from '~/utils/plan'
 
@@ -82,7 +82,7 @@ export function describeScenario(scenario: Scenario): string {
   }
 }
 
-export function describeLuckMode(mode: PlannerInputs['luckMode'] = 'realistic'): string {
+export function describeLuckMode(mode: PlannerSettings['luckMode'] = 'realistic'): string {
   switch (mode) {
     case 'best':
       return 'Featured odds: q=1.0. Plan as if you always win the 50/50 or 75/25.'
@@ -114,25 +114,38 @@ export function computeFundingSummary(params: {
   const fundedList: string[] = []
   const missedList: string[] = []
 
-  for (const target of sortedTargets.filter(t => t.channelType === channel)) {
-    const fundedMax = funded.get(target.targetId) ?? -1
-    const desiredMax = target.count - 1
-    if (funded.has(target.targetId))
-      fundedList.push(fundedMax <= 0 ? target.targetId : `${target.targetId} M${fundedMax}`)
+  // Group targets by targetId to count copies
+  const targetCounts = new Map<string, { channelType: ChannelType, count: number }>()
+  for (const target of sortedTargets) {
+    if (target.channelType !== channel)
+      continue
+    const existing = targetCounts.get(target.targetId)
+    if (existing)
+      existing.count += 1
+
+    else
+      targetCounts.set(target.targetId, { channelType: target.channelType, count: 1 })
+  }
+
+  for (const [targetId, { count }] of targetCounts) {
+    const fundedMax = funded.get(targetId) ?? -1
+    const desiredMax = count - 1
+    if (funded.has(targetId))
+      fundedList.push(fundedMax <= 0 ? targetId : `${targetId} M${fundedMax}`)
 
     if (desiredMax < 0)
       continue
     if (fundedMax < desiredMax) {
       if (desiredMax === 0 || fundedMax < 0) {
-        missedList.push(target.targetId)
+        missedList.push(targetId)
         continue
       }
       const start = Math.max(0, fundedMax + 1)
       if (start > desiredMax) {
-        missedList.push(target.targetId)
+        missedList.push(targetId)
         continue
       }
-      missedList.push(`${target.targetId} M${start}-M${desiredMax}`)
+      missedList.push(`${targetId} M${start}-M${desiredMax}`)
     }
   }
 
@@ -152,7 +165,7 @@ export function calculateDisplayedCost(params: {
   phase: PhaseIndex
   channel: ChannelType
   scenario: Scenario
-  inputs: PlannerInputs
+  inputs: PlannerSettings
   selectedTargets: SelectedTargetInput[]
   ranges: string[]
   checkRarity?: (name: string) => number
@@ -173,7 +186,7 @@ export function channelBreakdownParts(params: {
   plan: PhasePlan
   phase: PhaseIndex
   channel: ChannelType
-  inputs: PlannerInputs
+  inputs: PlannerSettings
   scenario: Scenario
   checkRarity?: (name: string) => number
 }): RoundedBreakdownPart[] | null {

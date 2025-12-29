@@ -1,13 +1,13 @@
 import type { Accessor, ParentProps } from 'solid-js'
 import type { GameData } from '~/remote/game'
-import type { ProfileData } from '~/types/profile'
+import type { Profile } from '~/types/profile'
 import { GameDataProvider } from './game'
 import { ProfilesStoreProvider } from './profiles'
 import { UIStoreProvider } from './ui'
 
 interface RootStoreProviderProps extends ParentProps {
   gameData: Accessor<GameData | undefined>
-  profiles: Accessor<ProfileData[] | undefined>
+  profiles: Accessor<Profile[] | undefined>
 }
 
 export function RootStoreProvider(props: RootStoreProviderProps) {
