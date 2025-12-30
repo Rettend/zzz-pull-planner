@@ -1,6 +1,7 @@
 import { A } from '@solidjs/router'
 import { ExternalLink } from '~/components/ExternalLink'
 import { NavBar } from '~/components/NavBar'
+import { UserMenu } from '~/components/UserMenu'
 
 export function Header() {
   return (
@@ -36,9 +37,10 @@ export function Header() {
           </div>
         </div>
 
-        {/* Right Column: NavBar */}
-        <div class="pt-1 flex items-start md:pt-0 md:items-center">
+        {/* Right Column: NavBar + User Menu */}
+        <div class="pt-1 flex gap-4 items-start md:pt-0 md:items-center">
           <NavBar />
+          <UserMenu />
         </div>
       </div>
     </header>

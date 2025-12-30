@@ -1,6 +1,6 @@
 import type { SelectedTargetInput } from '~/lib/plan-view'
-import type { PhasePlan, PlannerInputs, Scenario } from '~/lib/planner'
-import type { TargetAggregate } from '~/stores/targets'
+import type { PhasePlan, PlannerSettings, Scenario } from '~/lib/planner'
+import type { ProfileTarget } from '~/types/profile'
 import { createMemo, For, Show } from 'solid-js'
 import { TargetIconCard } from '~/components/TargetIconCard'
 import { createFundedMindscapes } from '~/lib/plan-view'
@@ -13,10 +13,10 @@ interface ShareablePlanCardProps {
   pattern: 'diagonal' | 'dots' | 'plus' | 'none'
 
   plan: PhasePlan
-  inputs: PlannerInputs
+  inputs: PlannerSettings
   scenario: Scenario
   selectedTargets: SelectedTargetInput[]
-  groupedTargets: TargetAggregate[]
+  sortedTargets: ProfileTarget[]
 }
 
 export function ShareablePlanCard(props: ShareablePlanCardProps) {
@@ -24,7 +24,7 @@ export function ShareablePlanCard(props: ShareablePlanCardProps) {
   const fundedMindscapes = createMemo(() => createFundedMindscapes(props.plan))
 
   const totalPulls = createMemo(() => {
-    const income = (props.inputs.incomes || []).reduce((a, b) => a + b, 0)
+    const income = Object.values(props.inputs.phaseSettings).reduce((a, ps) => a + ps.income, 0)
     return props.inputs.pullsOnHand + income
   })
 
@@ -32,12 +32,11 @@ export function ShareablePlanCard(props: ShareablePlanCardProps) {
     const list: { name: string, level: number, channel: 'agent' | 'engine' }[] = []
     const funded = fundedMindscapes()
 
-    for (const t of props.groupedTargets) {
-      if (funded.has(t.name)) {
-        const level = funded.get(t.name)!
-        if (level >= -1) {
-          list.push({ name: t.name, level, channel: t.channel })
-        }
+    for (const t of props.sortedTargets) {
+      if (funded.has(t.targetId)) {
+        const level = funded.get(t.targetId)!
+        if (level >= -1)
+          list.push({ name: t.targetId, level, channel: t.channelType })
       }
     }
     return list
@@ -47,13 +46,21 @@ export function ShareablePlanCard(props: ShareablePlanCardProps) {
     const list: { name: string, current: number, desired: number, channel: 'agent' | 'engine' }[] = []
     const funded = fundedMindscapes()
 
-    for (const t of props.groupedTargets) {
-      const current = funded.get(t.name) ?? -1
-      const desired = t.count - 1
+    const targetCounts = new Map<string, { channel: 'agent' | 'engine', count: number }>()
+    for (const t of props.sortedTargets) {
+      const existing = targetCounts.get(t.targetId)
+      if (existing)
+        existing.count += 1
+      else
+        targetCounts.set(t.targetId, { channel: t.channelType, count: 1 })
+    }
 
-      if (current < desired) {
-        list.push({ name: t.name, current, desired, channel: t.channel })
-      }
+    for (const [targetId, { channel, count }] of targetCounts) {
+      const current = funded.get(targetId) ?? -1
+      const desired = count - 1
+
+      if (current < desired)
+        list.push({ name: targetId, current, desired, channel })
     }
     return list
   })
@@ -160,7 +167,7 @@ export function ShareablePlanCard(props: ShareablePlanCardProps) {
           <Show when={props.showProbability}>
             <div class="flex gap-4">
               <div class="px-4 py-2 text-center border border-zinc-700/50 rounded-lg bg-zinc-700/30 backdrop-blur-sm">
-                <div class="text-xs text-zinc-500 tracking-wide font-medium uppercase">Pulls</div>
+                <div class="text-xs text-zinc-500 tracking-wide font-medium uppercase">Total</div>
                 <div class="text-xl text-white font-bold tabular-nums">{Math.round(totalPulls())}</div>
               </div>
               <div class="px-4 py-2 text-center border border-zinc-700/50 rounded-lg bg-zinc-700/30 backdrop-blur-sm">

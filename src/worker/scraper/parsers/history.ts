@@ -20,12 +20,11 @@ export function parseHistoryPage(html: string, type: 'agent' | 'engine'): Scrape
       // Fallback: try to get name from the first featured item if banner name is missing
       const firstCard = $(cols[1]).find('.card-container').first()
       const fallbackName = firstCard.find('.card-link a').text().trim() || firstCard.find('.card-label').text().trim()
-      if (fallbackName) {
+      if (fallbackName)
         name = `${fallbackName} Banner`
-      }
-      else {
+
+      else
         name = $(cols[0]).text().trim()
-      }
     }
 
     // Column 2 & 3: Dates (Use data-sort-value if available for better precision)
@@ -42,7 +41,13 @@ export function parseHistoryPage(html: string, type: 'agent' | 'engine'): Scrape
 
     try {
       const start = parseDate(startStr)
-      const end = parseDate(endStr)
+      let end: Date
+
+      if (endStr === 'unknown' || endStr.includes('Error: Invalid time'))
+        end = new Date(start.getTime() + 21 * 24 * 60 * 60 * 1000) // Default to 21 days after start
+
+      else
+        end = parseDate(endStr)
 
       const id = getBannerId(name, start)
 
@@ -61,13 +66,12 @@ export function parseHistoryPage(html: string, type: 'agent' | 'engine'): Scrape
         // Determine rarity from class (e.g. card-rank-S)
         let rarity = 4 // Default to A-rank (4 stars)
         // Check for S-rank class on the card container
-        if (card.hasClass('card-rank-S')) {
+        if (card.hasClass('card-rank-S'))
           rarity = 5
-        }
+
         // Also check for B-rank
-        if (card.hasClass('card-rank-B')) {
+        if (card.hasClass('card-rank-B'))
           rarity = 3
-        }
 
         const nickname = card.find('.card-label').text().trim() || null
 

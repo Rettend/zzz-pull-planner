@@ -3,6 +3,7 @@ import UnoCSS from 'unocss/vite'
 
 export default defineConfig({
   ssr: true,
+  middleware: 'src/middleware.ts',
   server: {
     preset: 'cloudflare-module',
     prerender: {

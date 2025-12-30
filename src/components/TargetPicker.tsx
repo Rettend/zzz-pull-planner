@@ -1,23 +1,68 @@
 import type { Component } from 'solid-js'
 import type { Banner, ChannelType } from '~/lib/constants'
-import type { TargetAggregate } from '~/stores/targets'
+import type { ProfileTarget } from '~/types/profile'
 import { createMemo, createSignal, For, Show } from 'solid-js'
 import { Portal } from 'solid-js/web'
 import { isBannerPast } from '~/lib/constants'
 import { computePlan, emptyPlan } from '~/lib/planner'
 import { useGame } from '~/stores/game'
-import { aggregateTargets, useTargetsStore } from '~/stores/targets'
+import { useProfilesStore } from '~/stores/profiles'
 import { useUIStore } from '~/stores/ui'
 import { TargetIconCard } from './TargetIconCard'
 
+interface TargetAggregate {
+  name: string
+  channel: ChannelType
+  priority: number
+  count: number
+}
+
+interface TargetEntry extends ProfileTarget {
+  mindscape: number
+}
+
+function computeMindscapes(targets: ProfileTarget[]): TargetEntry[] {
+  const sorted = [...targets].sort((a, b) => a.order - b.order)
+  const counts = new Map<string, number>()
+  return sorted.map((t) => {
+    const current = counts.get(t.targetId) ?? 0
+    counts.set(t.targetId, current + 1)
+    return { ...t, mindscape: current }
+  })
+}
+
+function aggregateTargets(targets: ProfileTarget[]): TargetAggregate[] {
+  if (!targets?.length)
+    return []
+  const sorted = [...targets].sort((a, b) => a.order - b.order)
+  const map = new Map<string, TargetAggregate>()
+  for (const entry of sorted) {
+    const existing = map.get(entry.targetId)
+    if (existing) {
+      existing.count += 1
+      continue
+    }
+    map.set(entry.targetId, {
+      name: entry.targetId,
+      channel: entry.channelType,
+      priority: entry.order,
+      count: 1,
+    })
+  }
+  return Array.from(map.values()).sort((a, b) => a.priority - b.priority)
+}
+
 export const TargetPicker: Component = () => {
-  const [targets, actions] = useTargetsStore()
-  const [ui, uiActions] = useUIStore()
+  const [, actions] = useProfilesStore()
+  const [, uiActions] = useUIStore()
   const game = useGame()
 
-  const inputs = createMemo(() => ui.local.plannerInputs)
-  const scenario = createMemo(() => ui.local.scenario)
-  const planningMode = createMemo(() => ui.local.planningMode)
+  const currentProfile = createMemo(() => actions.currentProfile())
+  const settings = () => actions.currentSettings()
+  const phaseSettings = () => actions.currentPhaseSettings()
+  const inputs = createMemo(() => ({ ...settings(), phaseSettings: phaseSettings() }))
+  const scenario = createMemo(() => settings().scenario)
+  const planningMode = createMemo(() => settings().planningMode ?? 's-rank')
   const isARankMode = createMemo(() => planningMode() === 'a-rank')
 
   const activeBanners = createMemo(() => game.banners().filter(b => !isBannerPast(b)))
@@ -32,24 +77,32 @@ export const TargetPicker: Component = () => {
     }
     return map
   })
-  const selectedEntries = createMemo(() => [...targets.selected].sort((a, b) => a.priority - b.priority))
-  const aggregatedSelected = createMemo(() => aggregateTargets(selectedEntries()))
+
+  const allEntries = createMemo(() => {
+    const targets = currentProfile().targets ?? []
+    return computeMindscapes(targets)
+  })
+
+  const aggregatedTargets = createMemo(() => aggregateTargets(currentProfile().targets ?? []))
   const aggregatedMap = createMemo(() => {
     const map = new Map<string, TargetAggregate>()
-    for (const entry of aggregatedSelected())
+    for (const entry of aggregatedTargets())
       map.set(entry.name, entry)
     return map
   })
-  const selectedTargetsInput = createMemo(() => {
-    const mode = planningMode()
-    return selectedEntries()
-      .filter((t) => {
-        const meta = t.channel === 'agent' ? game.resolveAgent(t.name) : game.resolveWEngine(t.name)
-        const rarity = meta?.rarity ?? 5
-        return mode === 's-rank' ? rarity === 5 : rarity === 4
-      })
-      .map(t => ({ name: t.name, channel: t.channel }))
+
+  const visibleEntries = createMemo(() => {
+    return allEntries().filter((t) => {
+      const meta = t.channelType === 'agent' ? game.resolveAgent(t.targetId) : game.resolveWEngine(t.targetId)
+      const rarity = meta?.rarity ?? 5
+      return isARankMode() ? rarity === 4 : rarity === 5
+    })
   })
+
+  const selectedTargetsInput = createMemo(() => {
+    return visibleEntries().map(t => ({ name: t.targetId, channel: t.channelType }))
+  })
+
   const plan = createMemo(() => {
     try {
       return computePlan(activeBanners(), inputs(), scenario(), selectedTargetsInput())
@@ -58,6 +111,7 @@ export const TargetPicker: Component = () => {
       return emptyPlan()
     }
   })
+
   const isSelected = (name: string) => aggregatedMap().has(name)
   const findAggregate = (name: string) => aggregatedMap().get(name)
 
@@ -65,9 +119,8 @@ export const TargetPicker: Component = () => {
     const funded = plan().fundedTargets
     const fundedCounts = new Map<string, number>()
 
-    for (const name of funded) {
+    for (const name of funded)
       fundedCounts.set(name, (fundedCounts.get(name) ?? 0) + 1)
-    }
 
     const aggregates = aggregatedMap()
 
@@ -96,7 +149,7 @@ export const TargetPicker: Component = () => {
   })
   const nonDraggedCount = createMemo(() => {
     const d = dragIndex()
-    const n = selectedEntries().length
+    const n = visibleEntries().length
     return d == null ? n : Math.max(0, n - 1)
   })
 
@@ -124,16 +177,8 @@ export const TargetPicker: Component = () => {
     if (e.dataTransfer)
       e.dataTransfer.dropEffect = 'move'
     if (dragIndex() != null && insertIndex() == null)
-      setInsertIndex(selectedEntries().length)
+      setInsertIndex(visibleEntries().length)
   }
-
-  const visibleSelectedTargets = createMemo(() => {
-    return selectedEntries().filter((t) => {
-      const meta = t.channel === 'agent' ? game.resolveAgent(t.name) : game.resolveWEngine(t.name)
-      const rarity = meta?.rarity ?? 5
-      return isARankMode() ? rarity === 4 : rarity === 5
-    })
-  })
 
   const [touchTimeout, setTouchTimeout] = createSignal<number | null>(null)
   const [ghostPosition, setGhostPosition] = createSignal<{ x: number, y: number } | null>(null)
@@ -155,20 +200,17 @@ export const TargetPicker: Component = () => {
     setTouchStartPos({ x: startX, y: startY })
 
     const timeout = window.setTimeout(() => {
-      // Long press triggered
       setTouchTimeout(null)
       setDragIndex(index)
       setDragActive(true)
       setGhostPosition({ x: startX, y: startY })
 
-      // Vibrate if supported
       if (typeof navigator !== 'undefined' && navigator.vibrate)
         navigator.vibrate(50)
-    }, 200) // 200ms long press
+    }, 200)
 
     setTouchTimeout(timeout)
 
-    // Add global listeners with passive: false to allow preventing scroll
     window.addEventListener('touchmove', handleTouchMove, { passive: false })
     window.addEventListener('touchend', handleTouchEnd)
     window.addEventListener('touchcancel', handleTouchEnd)
@@ -180,7 +222,6 @@ export const TargetPicker: Component = () => {
       const touch = e.touches[0]
       const start = touchStartPos()
       if (start && (Math.abs(touch.clientX - start.x) > 10 || Math.abs(touch.clientY - start.y) > 10)) {
-        // Moved too much before long press -> cancel
         clearTimeout(timeout)
         setTouchTimeout(null)
         setTouchStartPos(null)
@@ -197,18 +238,14 @@ export const TargetPicker: Component = () => {
         const touch = e.touches[0]
         setGhostPosition({ x: touch.clientX, y: touch.clientY })
 
-        // Find target under finger
         const element = document.elementFromPoint(touch.clientX, touch.clientY)
         const targetCard = element?.closest('[data-sort-index]') as HTMLElement
 
         if (targetCard) {
           const index = Number.parseInt(targetCard.dataset.sortIndex || '-1')
           if (index !== -1 && index !== dragIndex()) {
-            // Calculate if we are closer to the left or right/bottom
             const rect = targetCard.getBoundingClientRect()
             const center = rect.left + rect.width / 2
-
-            // Let's refine: if x > center, insert after.
             const isAfter = touch.clientX > center
             setInsertIndex(isAfter ? index + 1 : index)
           }
@@ -226,13 +263,11 @@ export const TargetPicker: Component = () => {
     setTouchStartPos(null)
 
     if (dragActive() && ghostPosition()) {
-      // Commit drop
       const fromLocal = dragIndex()
       const toLocal = insertIndex()
 
-      if (fromLocal != null && toLocal != null) {
+      if (fromLocal != null && toLocal != null)
         commitReorder(fromLocal, toLocal)
-      }
 
       setDragIndex(null)
       setInsertIndex(null)
@@ -244,8 +279,8 @@ export const TargetPicker: Component = () => {
   }
 
   function commitReorder(fromLocal: number, toLocal: number) {
-    const visible = visibleSelectedTargets()
-    const all = selectedEntries()
+    const visible = visibleEntries()
+    const all = allEntries()
 
     const item = visible[fromLocal]
     if (!item)
@@ -268,7 +303,7 @@ export const TargetPicker: Component = () => {
     if (toGlobal === -1)
       return
 
-    actions.reorder(fromGlobal, toGlobal)
+    actions.reorderTargets(fromGlobal, toGlobal)
   }
 
   function onSelectedDrop(e: DragEvent) {
@@ -320,10 +355,10 @@ export const TargetPicker: Component = () => {
 
   function handleIncrement(name: string, channel: ChannelType) {
     if (!isSelected(name)) {
-      actions.add({ name, channel })
+      actions.addTarget({ targetId: name, channelType: channel })
+      uiActions.setSavePlanBannerShown(true)
       return
     }
-
     actions.incrementMindscape(name)
   }
 
@@ -336,7 +371,7 @@ export const TargetPicker: Component = () => {
       return
 
     if (target.count <= 1) {
-      actions.remove(name)
+      actions.removeTarget(name)
       return
     }
 
@@ -350,13 +385,13 @@ export const TargetPicker: Component = () => {
         <div class="p-1 border border-zinc-700/50 rounded-lg bg-zinc-800/50 flex gap-2">
           <button
             class={`text-xs tracking-wider font-bold py-1.5 rounded-md flex-1 uppercase transition-colors ${!isARankMode() ? 'bg-gradient-to-b from-[#fff200] to-[#ff8200] text-zinc-900 border border-[#fff200]' : 'text-zinc-500 hover:text-zinc-300'}`}
-            onClick={() => uiActions.setPlanningMode('s-rank')}
+            onClick={() => actions.setPlanningMode('s-rank')}
           >
             S-Rank
           </button>
           <button
             class={`text-xs tracking-wider font-bold py-1.5 rounded-md flex-1 uppercase transition-colors ${isARankMode() ? 'bg-gradient-to-b from-[#ff59ff] to-[#ab2bfa] text-zinc-900 border border-[#ff59ff]' : 'text-zinc-500 hover:text-zinc-300'}`}
-            onClick={() => uiActions.setPlanningMode('a-rank')}
+            onClick={() => actions.setPlanningMode('a-rank')}
           >
             A-Rank
           </button>
@@ -374,9 +409,8 @@ export const TargetPicker: Component = () => {
                     for (const b of banners) {
                       const targets = isARankMode() ? b.featuredARanks : [b.featured]
                       for (const t of targets) {
-                        if (!map.has(t)) {
+                        if (!map.has(t))
                           map.set(t, { name: t, channel: b.type, banner: b })
-                        }
                       }
                     }
                     return Array.from(map.values())
@@ -388,10 +422,16 @@ export const TargetPicker: Component = () => {
                         const target = () => findAggregate(targetName)
                         return (
                           <button
-                            class="text-left"
-                            onClick={() => isSelected(targetName)
-                              ? actions.remove(targetName)
-                              : actions.add({ name: targetName, channel })}
+                            class="text-left w-fit"
+                            onClick={() => {
+                              if (isSelected(targetName)) {
+                                actions.removeTarget(targetName)
+                              }
+                              else {
+                                actions.addTarget({ targetId: targetName, channelType: channel })
+                                uiActions.setSavePlanBannerShown(true)
+                              }
+                            }}
                             title={`${b.title} (${b.start} → ${b.end})`}
                           >
                             <TargetIconCard
@@ -418,7 +458,7 @@ export const TargetPicker: Component = () => {
         </For>
       </div>
 
-      {/* Selected */}
+      {/* Selected - Priority List */}
       <div class="space-y-2">
         <div class="text-sm text-emerald-200 font-semibold">Priority List</div>
         <div
@@ -426,7 +466,7 @@ export const TargetPicker: Component = () => {
           onDragOver={e => onSelectedDragOver(e)}
           onDrop={e => onSelectedDrop(e)}
         >
-          <For each={visibleSelectedTargets()}>
+          <For each={visibleEntries()}>
             {(t, i) => {
               const beforeIndex = () => {
                 const d = dragIndex()
@@ -467,8 +507,8 @@ export const TargetPicker: Component = () => {
                   >
                     <div class="relative">
                       <TargetIconCard
-                        name={t.name}
-                        channel={t.channel}
+                        name={t.targetId}
+                        channel={t.channelType}
                         context="selected"
                       />
                       <div class="text-xs text-emerald-200 font-bold px-1.5 py-0.5 border border-zinc-700 rounded bg-zinc-900/90 bottom-1 left-1 absolute backdrop-blur-sm">
@@ -508,12 +548,12 @@ export const TargetPicker: Component = () => {
               transform: 'translate(-50%, -50%) scale(1.1)',
             }}
           >
-            <Show when={visibleSelectedTargets()[dragIndex()!]}>
+            <Show when={visibleEntries()[dragIndex()!]}>
               {item => (
                 <div class="shadow-2xl relative">
                   <TargetIconCard
-                    name={item().name}
-                    channel={item().channel}
+                    name={item().targetId}
+                    channel={item().channelType}
                     context="selected"
                   />
                   <div class="text-xs text-emerald-200 font-bold px-1.5 py-0.5 border border-zinc-700 rounded bg-zinc-900/90 bottom-1 left-1 absolute backdrop-blur-sm">

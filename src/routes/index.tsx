@@ -1,17 +1,17 @@
 import type { SelectedTargetInput } from '~/lib/plan-view'
-import type { PhasePlan, PlannerInputs } from '~/lib/planner'
+import type { PhasePlan, PlannerSettings } from '~/lib/planner'
+import type { ProfileTarget } from '~/types/profile'
 import { Link, Meta, Title } from '@solidjs/meta'
-import { batch, createMemo, untrack } from 'solid-js'
+import { createMemo, Show } from 'solid-js'
 import { ClientOnly } from '~/components/ClientOnly'
-import { AccountsTabs } from '~/components/home/AccountsTabs'
 import { PlannerInputsPanel } from '~/components/home/PlannerInputsPanel'
 import { PlanOverview } from '~/components/home/PlanOverview'
-import { PullSimulationPanel } from '~/components/home/PullSimulationPanel'
+import { ProfilesTabs } from '~/components/home/ProfilesTabs'
+import { SavePlanBanner } from '~/components/home/SavePlanBanner'
 import { TargetPicker } from '~/components/TargetPicker'
-import { isBannerPast } from '~/lib/constants'
 import { computePlan, emptyPlan } from '~/lib/planner'
 import { useGame } from '~/stores/game'
-import { aggregateTargets, useTargetsStore } from '~/stores/targets'
+import { useProfilesStore } from '~/stores/profiles'
 import { useUIStore } from '~/stores/ui'
 
 export default function Home() {
@@ -55,33 +55,42 @@ export default function Home() {
 }
 
 function HomeContent() {
-  const [ui, actions] = useUIStore()
-  const [targets, targetActions] = useTargetsStore()
+  const [ui, uiActions] = useUIStore()
+  const [profilesState, profileActions] = useProfilesStore()
   const game = useGame()
-  const inputs = createMemo(() => ui.local.plannerInputs)
-  const scenario = createMemo(() => ui.local.scenario)
-  const phaseTimings = createMemo(() => ui.local.phaseTimings)
+  const settings = () => profileActions.currentSettings()
+  const phaseSettings = () => profileActions.currentPhaseSettings()
+  const inputs = createMemo<PlannerSettings>(() => ({ ...settings(), phaseSettings: phaseSettings() }))
+  const scenario = createMemo(() => settings().scenario)
+  const planningMode = createMemo(() => settings().planningMode ?? 's-rank')
 
-  const activeBanners = createMemo(() => game.banners().filter(b => !isBannerPast(b)))
+  const activeBanners = createMemo(() => game.banners())
+  const currentTargets = createMemo(() => profileActions.currentProfile().targets ?? [])
 
-  const selectedEntries = createMemo(() => (targets?.selected ?? []).slice().sort((a, b) => a.priority - b.priority))
+  const showSavePlanBanner = createMemo(() => {
+    if (profileActions.isServerMode())
+      return false
+    if (ui.local.savePlanBannerDismissed)
+      return false
+    return ui.local.savePlanBannerShown
+  })
 
-  const filteredEntries = createMemo(() => {
-    const mode = ui.local.planningMode
-    return selectedEntries().filter((t) => {
-      const meta = t.channel === 'agent' ? game.resolveAgent(t.name) : game.resolveWEngine(t.name)
+  const filteredTargets = createMemo(() => {
+    const mode = planningMode()
+    return currentTargets().filter((t) => {
+      const meta = t.channelType === 'agent' ? game.resolveAgent(t.targetId) : game.resolveWEngine(t.targetId)
       const rarity = meta?.rarity ?? 5
       return mode === 's-rank' ? rarity === 5 : rarity === 4
     })
   })
 
-  const selectedTargets = createMemo<SelectedTargetInput[]>(() => filteredEntries().map(t => ({ name: t.name, channel: t.channel })))
-  const groupedTargets = createMemo(() => aggregateTargets(filteredEntries()))
-  const currentEntry = createMemo(() => filteredEntries()[0] ?? null)
-  const currentTarget = createMemo<SelectedTargetInput | null>(() => {
-    const entry = currentEntry()
-    return entry ? { name: entry.name, channel: entry.channel } : null
-  })
+  const selectedTargets = createMemo<SelectedTargetInput[]>(() =>
+    filteredTargets().map(t => ({ name: t.targetId, channel: t.channelType })),
+  )
+
+  const sortedTargets = createMemo<ProfileTarget[]>(() =>
+    [...filteredTargets()].sort((a, b) => a.order - b.order),
+  )
 
   const plan = createMemo<PhasePlan>(() => {
     try {
@@ -92,58 +101,14 @@ function HomeContent() {
     }
   })
 
-  function simulatePull(count: 1 | 10) {
-    const targetEntry = untrack(currentEntry)
-    if (!targetEntry)
-      return
-    const currentInputs = untrack(inputs)
-    if (currentInputs.pullsOnHand < count)
-      return
-    const updates: Partial<PlannerInputs> = {
-      pullsOnHand: currentInputs.pullsOnHand - count,
-    }
-
-    if (targetEntry.channel === 'agent') {
-      updates.pityAgentStart = Math.min(89, currentInputs.pityAgentStart + count)
-    }
-    else {
-      updates.pityEngineStart = Math.min(79, currentInputs.pityEngineStart + count)
-    }
-
-    actions.setPlannerInputs(updates)
-  }
-
-  function onPulledIt() {
-    const targetEntry = untrack(currentEntry)
-    if (!targetEntry)
-      return
-
-    batch(() => {
-      if (targetEntry.channel === 'agent') {
-        actions.setPlannerInputs({
-          pityAgentStart: 0,
-          guaranteedAgentStart: false,
-        })
-      }
-      else {
-        actions.setPlannerInputs({
-          pityEngineStart: 0,
-          guaranteedEngineStart: false,
-        })
-      }
-      targetActions.removeEntry(targetEntry.id)
-    })
-  }
-
   const featuredAgentNames = createMemo(() => {
     const banners = activeBanners()
     const names = new Set<string>()
     for (const b of banners) {
       if (b.type === 'agent') {
         const agent = game.resolveAgent(b.featured)
-        if (agent) {
+        if (agent)
           names.add(agent.name)
-        }
       }
     }
     return Array.from(names)
@@ -151,54 +116,45 @@ function HomeContent() {
 
   return (
     <div class="mx-auto max-w-7xl relative space-y-6">
+      <ClientOnly>
+        <Show when={showSavePlanBanner()}>
+          <SavePlanBanner
+            loading={profilesState.loading}
+            onSave={() => profileActions.promoteToPersisted()}
+            onDismiss={() => uiActions.setSavePlanBannerDismissed(true)}
+          />
+        </Show>
+      </ClientOnly>
       <section class="p-2 border border-zinc-700 rounded-xl bg-zinc-800/50">
-        <ClientOnly fallback={<div class="rounded-lg bg-zinc-800/50 h-9 animate-pulse" />}>
-          <AccountsTabs />
-        </ClientOnly>
+        <ProfilesTabs />
       </section>
 
       <section class="p-4 border border-zinc-700 rounded-xl bg-zinc-800/50 space-y-3">
         <h2 class="text-lg text-emerald-300 tracking-wide font-bold">Select Targets</h2>
-        <ClientOnly fallback={<div class="rounded-lg bg-zinc-800/50 h-64 animate-pulse" />}>
+        <ClientOnly>
           <TargetPicker />
         </ClientOnly>
       </section>
 
       <div class="gap-6 grid lg:grid-cols-[1fr_2fr]">
-        <div class="flex flex-col gap-6">
-          <section class="p-4 border border-zinc-700 rounded-xl bg-zinc-800/50 space-y-4">
-            <h2 class="text-lg text-emerald-300 tracking-wide font-bold md:mb-4">Inputs</h2>
-            <ClientOnly fallback={<div class="rounded-lg bg-zinc-800/50 h-96 animate-pulse" />}>
-              <PlannerInputsPanel />
-            </ClientOnly>
-          </section>
-
-          <section class="p-4 border border-zinc-700 rounded-xl bg-zinc-800/50 h-fit space-y-4">
-            <h2 class="text-lg text-emerald-300 tracking-wide font-bold mb-2 md:mb-4">Pull Simulation</h2>
-            <ClientOnly fallback={<div class="rounded-lg bg-zinc-800/50 h-24 animate-pulse" />}>
-              <PullSimulationPanel
-                inputs={inputs}
-                currentTarget={currentTarget}
-                onSimulate={simulatePull}
-                onPulled={onPulledIt}
-              />
-            </ClientOnly>
-          </section>
-        </div>
+        <section class="p-4 border border-zinc-700 rounded-xl bg-zinc-800/50 h-fit space-y-4">
+          <h2 class="text-lg text-emerald-300 tracking-wide font-bold md:mb-4">Inputs</h2>
+          <PlannerInputsPanel />
+        </section>
 
         <section class="p-4 border border-zinc-700 rounded-xl bg-zinc-800/50 h-full space-y-4">
           <h2 class="text-lg text-emerald-300 tracking-wide font-bold">Plan</h2>
-          <ClientOnly fallback={<div class="rounded-lg bg-zinc-800/50 h-96 animate-pulse" />}>
+          <ClientOnly>
             <PlanOverview
               banners={activeBanners}
               plan={plan}
               inputs={inputs}
               scenario={scenario}
               selectedTargets={selectedTargets}
-              groupedTargets={groupedTargets}
-              phaseTimings={phaseTimings}
-              onPhaseTimingChange={actions.setPhaseTiming}
-              planningMode={() => ui.local.planningMode}
+              sortedTargets={sortedTargets}
+              phaseSettings={phaseSettings}
+              onPhaseSettingsChange={(range, updates) => profileActions.setPhaseSettings(range, updates)}
+              planningMode={planningMode}
             />
           </ClientOnly>
         </section>

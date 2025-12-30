@@ -1,4 +1,4 @@
-import type { PhasePlan, PlannerInputs, Scenario } from '~/lib/planner'
+import type { PhasePlan, PlannerSettings, Scenario } from '~/lib/planner'
 import { formatSlug } from '~/utils'
 import { computeChannelBreakdown, roundToTarget } from '~/utils/plan'
 
@@ -14,7 +14,7 @@ function buildBreakdownEquation(
 }
 
 export function formatPlanCopyText(
-  inputs: PlannerInputs,
+  inputs: PlannerSettings,
   scenario: Scenario,
   selectedTargets: { name: string, channel: 'agent' | 'engine' }[],
   plan: PhasePlan,
@@ -31,12 +31,12 @@ export function formatPlanCopyText(
   lines.push('Inputs:')
   lines.push(`- Pulls on hand (P0): ${formatNumber(inputs.pullsOnHand)}`)
 
-  inputs.incomes.forEach((inc, idx) => {
-    lines.push(`- Income Phase ${idx + 1} (I${idx + 1}): ${formatNumber(inc)}`)
+  Object.entries(inputs.phaseSettings).forEach(([_range, ps], idx) => {
+    lines.push(`- Income Phase ${idx + 1} (I${idx + 1}): ${formatNumber(ps.income)}`)
   })
 
-  lines.push(`- Agent pity (pA): ${formatNumber(inputs.pityAgentStart)}${inputs.guaranteedAgentStart ? ' (guaranteed)' : ''}`)
-  lines.push(`- W-Engine pity (pW): ${formatNumber(inputs.pityEngineStart)}${inputs.guaranteedEngineStart ? ' (guaranteed)' : ''}`)
+  lines.push(`- Agent pity (pA): ${formatNumber(inputs.pityAgentS)}${inputs.guaranteedAgentS ? ' (guaranteed)' : ''}`)
+  lines.push(`- W-Engine pity (pW): ${formatNumber(inputs.pityEngineS)}${inputs.guaranteedEngineS ? ' (guaranteed)' : ''}`)
   lines.push('')
   lines.push('Targets (in order):')
   if (selectedTargets.length === 0) {
@@ -109,9 +109,8 @@ export function formatPlanCopyText(
     lines.push(`- Not funded yet: ${missed.join(', ')}`)
 
   plan.phases.forEach((phase, idx) => {
-    if ((phase.shortfallEnd ?? 0) > 0) {
+    if ((phase.shortfallEnd ?? 0) > 0)
       lines.push(`- You would need ${formatNumber(phase.shortfallEnd ?? 0)} more pulls at the end of Phase ${idx + 1} to fund all selections up to that point.`)
-    }
   })
 
   return lines.join('\n')

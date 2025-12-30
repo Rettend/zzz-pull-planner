@@ -1,5 +1,5 @@
 import type { JSX } from 'solid-js'
-import type { PlannerInputs } from '~/lib/planner'
+import type { PlannerSettings } from '~/lib/planner'
 import { createMemo, For } from 'solid-js'
 
 function pct(n: number, d: number): string {
@@ -124,12 +124,12 @@ export function StatRow(props: {
 }
 
 export type NumberKeys = {
-  [K in keyof PlannerInputs]-?: PlannerInputs[K] extends number | undefined ? K : never
-}[keyof PlannerInputs]
+  [K in keyof PlannerSettings]-?: PlannerSettings[K] extends number | undefined ? K : never
+}[keyof PlannerSettings]
 
 export type BoolKeys = {
-  [K in keyof PlannerInputs]-?: PlannerInputs[K] extends boolean | undefined ? K : never
-}[keyof PlannerInputs]
+  [K in keyof PlannerSettings]-?: PlannerSettings[K] extends boolean | undefined ? K : never
+}[keyof PlannerSettings]
 
 /**
  * Sanitizes a number input, enforcing min/max and handling empty values.
@@ -160,9 +160,9 @@ export function sanitizeNumberInput(
   return n
 }
 
-export function numberInput<K extends NumberKeys & keyof PlannerInputs>(
-  inputs: () => PlannerInputs,
-  setPlannerInput: (key: K, value: PlannerInputs[K]) => void,
+export function numberInput<K extends NumberKeys & keyof PlannerSettings>(
+  inputs: () => PlannerSettings,
+  setPlannerInput: (key: K, value: PlannerSettings[K]) => void,
   key: K,
   options?: { min?: number, max?: number },
 ) {
@@ -175,9 +175,9 @@ export function numberInput<K extends NumberKeys & keyof PlannerInputs>(
   }
 }
 
-export function boolInput<K extends BoolKeys & keyof PlannerInputs>(
-  inputs: () => PlannerInputs,
-  setPlannerInput: (key: K, value: PlannerInputs[K]) => void,
+export function boolInput<K extends BoolKeys & keyof PlannerSettings>(
+  inputs: () => PlannerSettings,
+  setPlannerInput: (key: K, value: PlannerSettings[K]) => void,
   key: K,
 ) {
   return {

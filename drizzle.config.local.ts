@@ -7,4 +7,5 @@ export default defineConfig({
     url: 'drizzle/local.db',
   },
   out: 'drizzle',
+  casing: 'snake_case',
 })

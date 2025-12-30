@@ -1,9 +1,9 @@
 /* eslint-disable no-console */
-import type { Banner, Target } from '../../db/schema'
-import type { VersionDataMap } from './types'
+import type { Attribute, Banner, Specialty, Target } from '../../db/schema'
+import type { MetaEntry, VersionDataMap } from './types'
 
 import { eq, sql } from 'drizzle-orm'
-import { banners, bannerTargets, scrapeRuns, targets } from '../../db/schema'
+import { attributes, banners, bannerTargets, scrapeRuns, specialties, targets } from '../../db/schema'
 import { normalizeName } from '../../lib/utils'
 import { downloadImage, fetchWikiPage } from './fetch'
 import { parseHistoryPage } from './parsers/history'
@@ -22,11 +22,15 @@ export async function scrapeBanners(db: any, r2?: R2Bucket, force = false) {
     console.log('Loading existing data from DB...')
     const existingBanners = await db.select().from(banners).all() as Banner[]
     const existingTargets = await db.select().from(targets).all() as Target[]
+    const existingAttributes = await db.select().from(attributes).all() as Attribute[]
+    const existingSpecialties = await db.select().from(specialties).all() as Specialty[]
 
     const existingBannersMap = new Map(existingBanners.map(b => [b.id, b]))
     const existingTargetsMap = new Map(existingTargets.map(t => [t.id, t]))
+    const existingAttributesMap = new Map(existingAttributes.map(a => [a.id, a]))
+    const existingSpecialtiesMap = new Map(existingSpecialties.map(s => [s.id, s]))
 
-    console.log(`Loaded ${existingBanners.length} banners and ${existingTargets.length} targets.`)
+    console.log(`Loaded ${existingBanners.length} banners, ${existingTargets.length} targets, ${existingAttributes.length} attributes, ${existingSpecialties.length} specialties.`)
 
     // 1. Fetch and Parse History Pages
     console.log('Fetching history pages...')
@@ -73,6 +77,8 @@ export async function scrapeBanners(db: any, r2?: R2Bucket, force = false) {
 
     // 3. Fetch and Parse Version Pages
     const versionDataMap: VersionDataMap = new Map()
+    const discoveredAttributes: Map<string, MetaEntry> = new Map()
+    const discoveredSpecialties: Map<string, MetaEntry> = new Map()
     const versionsList = Array.from(versionsToFetch)
 
     // Fetch in chunks of 3 to avoid rate limits
@@ -84,16 +90,103 @@ export async function scrapeBanners(db: any, r2?: R2Bucket, force = false) {
           console.log(`Fetching version ${version}...`)
           const versionUrl = `https://zenless-zone-zero.fandom.com/api.php?action=parse&page=Version/${version}&prop=text&format=json`
           const html = await fetchWikiPage(versionUrl)
-          const data = parseVersionPage(html)
+          const { agents, attributes: versionAttrs, specialties: versionSpecs } = parseVersionPage(html)
 
-          for (const [name, info] of data) {
+          for (const [name, info] of agents)
             versionDataMap.set(name, info)
+
+          // Collect discovered metadata
+          for (const attr of versionAttrs) {
+            if (!discoveredAttributes.has(attr.name))
+              discoveredAttributes.set(attr.name, attr)
+          }
+          for (const spec of versionSpecs) {
+            if (!discoveredSpecialties.has(spec.name))
+              discoveredSpecialties.set(spec.name, spec)
           }
         }
         catch (e) {
           console.error(`Failed to fetch/parse version page for ${version}`, e)
         }
       }))
+    }
+
+    // 4. Upsert only new attributes and specialties
+    const newAttributes = Array.from(discoveredAttributes.values()).filter(
+      attr => !existingAttributesMap.has(attr.name) || !existingAttributesMap.get(attr.name)?.iconPath,
+    )
+    const newSpecialties = Array.from(discoveredSpecialties.values()).filter(
+      spec => !existingSpecialtiesMap.has(spec.name) || !existingSpecialtiesMap.get(spec.name)?.iconPath,
+    )
+
+    if (newAttributes.length > 0 || newSpecialties.length > 0) {
+      console.log(`Upserting ${newAttributes.length} new attributes and ${newSpecialties.length} new specialties...`)
+
+      for (const attr of newAttributes) {
+        let iconPath: string | null = null
+        if (attr.iconUrl && r2) {
+          const r2Key = `icons/attributes/${normalizeName(attr.name)}.webp`
+          const exists = await checkR2FileExists({ ASSETS_BUCKET: r2 } as any, r2Key)
+
+          if (!exists) {
+            console.log(`Downloading icon for attribute ${attr.name}...`)
+            const imageBuffer = await downloadImage(attr.iconUrl)
+            if (imageBuffer) {
+              const success = await uploadToR2({ ASSETS_BUCKET: r2 } as any, r2Key, imageBuffer, 'image/webp')
+              if (success)
+                iconPath = r2Key
+            }
+          }
+          else {
+            iconPath = r2Key
+          }
+        }
+
+        await db.insert(attributes).values({
+          id: attr.name,
+          iconPath,
+          updatedAt: Math.floor(Date.now() / 1000),
+        }).onConflictDoUpdate({
+          target: attributes.id,
+          set: {
+            iconPath: sql`COALESCE(excluded.icon_path, attributes.icon_path)`,
+            updatedAt: sql`excluded.updated_at`,
+          },
+        }).execute()
+      }
+
+      for (const spec of newSpecialties) {
+        let iconPath: string | null = null
+        if (spec.iconUrl && r2) {
+          const r2Key = `icons/specialties/${normalizeName(spec.name)}.webp`
+          const exists = await checkR2FileExists({ ASSETS_BUCKET: r2 } as any, r2Key)
+
+          if (!exists) {
+            console.log(`Downloading icon for specialty ${spec.name}...`)
+            const imageBuffer = await downloadImage(spec.iconUrl)
+            if (imageBuffer) {
+              const success = await uploadToR2({ ASSETS_BUCKET: r2 } as any, r2Key, imageBuffer, 'image/webp')
+              if (success)
+                iconPath = r2Key
+            }
+          }
+          else {
+            iconPath = r2Key
+          }
+        }
+
+        await db.insert(specialties).values({
+          id: spec.name,
+          iconPath,
+          updatedAt: Math.floor(Date.now() / 1000),
+        }).onConflictDoUpdate({
+          target: specialties.id,
+          set: {
+            iconPath: sql`COALESCE(excluded.icon_path, specialties.icon_path)`,
+            updatedAt: sql`excluded.updated_at`,
+          },
+        }).execute()
+      }
     }
 
     let addedCount = 0
@@ -141,9 +234,8 @@ export async function scrapeBanners(db: any, r2?: R2Bucket, force = false) {
           needsUpdate = true
         }
 
-        if (needsUpdate) {
+        if (needsUpdate)
           bannersToUpsert.push(bannerData)
-        }
 
         for (const [index, target] of banner.featured.entries()) {
           const targetId = normalizeName(target.name)
@@ -172,9 +264,8 @@ export async function scrapeBanners(db: any, r2?: R2Bucket, force = false) {
                   const imageBuffer = await downloadImage(target.iconUrl)
                   if (imageBuffer) {
                     const success = await uploadToR2({ ASSETS_BUCKET: r2 } as any, r2Key, imageBuffer, 'image/webp')
-                    if (success) {
+                    if (success)
                       iconPath = r2Key
-                    }
                   }
                 }
                 else {

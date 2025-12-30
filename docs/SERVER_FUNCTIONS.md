@@ -24,6 +24,10 @@ async function toggleTodo(id: number) {
 
 You can mark an entire file as server-only by placing the directive at the very top. All exported functions in this file become server functions.
 
+**Important:** Only use module-scope `'use server'` for modules that are **not imported by client code**
+
+If you export “server-only helpers” (like `requireDb()` returning a DB client), SolidStart can treat them as *client-callable* server functions. When those helpers return non-serializable values, SolidStart will crash while serializing the `/_server` response (often surfacing as a 503 HTML error page in dev, which then causes `Malformed server function stream header: !DOCTYPE h` on the client).
+
 ```typescript
 // src/server/actions.ts
 'use server'
@@ -244,3 +248,27 @@ async function protectedAction() {
   // ...
 }
 ```
+
+---
+
+## Gotchas
+
+### 1) “Helper server functions” can become real RPC endpoints
+
+We hit a subtle failure mode when we put module-scope `'use server'` on a utilities file and exported helpers like:
+- `requireUser()` → returns a user object (fine)
+- `requireDb()` → returns the Drizzle DB instance (**not serializable**)
+
+Because the module was `'use server'`, SolidStart treated these exports as server functions, so the client ended up calling them via `POST /_server` as separate RPC hops. The `requireDb()` response then tried to serialize the DB client and Seroval crashed.
+
+### 2) Symptoms you’ll see when Seroval crashes
+
+- **Network**: `POST /_server` returns **503** with an **HTML error page** (in dev).
+- **Browser console**: `Malformed server function stream header: !DOCTYPE h`
+  - This is a *secondary* error: it means the client expected the server-function stream format, but got HTML instead.
+
+### 3) The safe pattern
+
+- **Prefer function-scope `'use server'`** inside your `query(async () => { ... })` / `action(async () => { ... })` callbacks.
+- Keep **server-only helpers** (especially anything that returns a DB client) in modules **without** module-scope `'use server'`, and only call them *inside* your server functions.
+- Return **plain objects** across the server-function boundary; keep non-serializable things (DB clients, adapters, etc.) strictly on the server side.

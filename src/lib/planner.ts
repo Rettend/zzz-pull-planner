@@ -1,22 +1,8 @@
 import type { Banner, ChannelType } from '~/lib/constants'
+import type { PlannerSettings, Scenario } from '~/types/profile'
 import { convolveDiscrete, costAtScenario, costStatsFromPmf, featuredCostPmf, geometricCostPmf, getARankHazard } from '~/lib/probability'
 
-export type Scenario = 'p50' | 'p60' | 'p75' | 'p90' | 'ev'
-
-export interface PlannerInputs {
-  N: number
-  pullsOnHand: number
-  incomes: number[] // Index corresponds to phase index (0 -> Phase 1, etc.)
-  pityAgentStart: number
-  guaranteedAgentStart: boolean
-  pityEngineStart: number
-  guaranteedEngineStart: boolean
-  pityAgentStartA?: number
-  guaranteedAgentStartA?: boolean
-  pityEngineStartA?: number
-  guaranteedEngineStartA?: boolean
-  luckMode?: 'best' | 'realistic' | 'worst'
-}
+export type { LuckMode, PhaseSettings, PlannerSettings, Scenario } from '~/types/profile'
 
 export interface PhaseResult {
   id: string // range key
@@ -153,22 +139,28 @@ export function computePhaseRanges(banners: Banner[]): string[] {
 
 export function computePlan(
   banners: Banner[],
-  inputs: PlannerInputs,
+  inputs: PlannerSettings,
   scenario: Scenario,
   selected: SelectedTargetInput[] = [],
 ): PhasePlan {
   const {
     pullsOnHand: rawPullsOnHand,
-    incomes: rawIncomes = [],
-    pityAgentStart,
-    guaranteedAgentStart,
-    pityEngineStart,
-    guaranteedEngineStart,
+    phaseSettings,
+    pityAgentS,
+    guaranteedAgentS,
+    pityEngineS,
+    guaranteedEngineS,
+    pityAgentA,
+    guaranteedAgentA,
+    pityEngineA,
+    guaranteedEngineA,
     luckMode = 'realistic',
   } = inputs
 
   const pullsOnHand = Number(rawPullsOnHand)
-  const incomes = (rawIncomes || []).map(Number)
+
+  // Helper to get income for a phase range
+  const getIncome = (range: string) => phaseSettings[range]?.income ?? 75
 
   const qAgent = luckMode === 'best' ? 1 : luckMode === 'worst' ? 0 : 0.5
   const qEngine = luckMode === 'best' ? 1 : luckMode === 'worst' ? 0 : 0.75
@@ -305,9 +297,8 @@ export function computePlan(
         let pSuccess = winRate
 
         const state = t.channel === 'agent' ? agentStateA : engineStateA
-        if (state.guaranteed) {
+        if (state.guaranteed)
           pSuccess = 0.5
-        }
 
         if (luckMode === 'best')
           pSuccess = 1.0
@@ -352,10 +343,10 @@ export function computePlan(
   }
 
   const phases: PhaseResult[] = []
-  let currentAgentStateS = { pity: clamp(pityAgentStart, 0, 89), guaranteed: Boolean(guaranteedAgentStart) }
-  let currentEngineStateS = { pity: clamp(pityEngineStart, 0, 79), guaranteed: Boolean(guaranteedEngineStart) }
-  let currentAgentStateA = { pity: clamp(inputs.pityAgentStartA ?? 0, 0, 9), guaranteed: Boolean(inputs.guaranteedAgentStartA) }
-  let currentEngineStateA = { pity: clamp(inputs.pityEngineStartA ?? 0, 0, 9), guaranteed: Boolean(inputs.guaranteedEngineStartA) }
+  let currentAgentStateS = { pity: clamp(pityAgentS, 0, 89), guaranteed: Boolean(guaranteedAgentS) }
+  let currentEngineStateS = { pity: clamp(pityEngineS, 0, 79), guaranteed: Boolean(guaranteedEngineS) }
+  let currentAgentStateA = { pity: clamp(pityAgentA, 0, 9), guaranteed: Boolean(guaranteedAgentA) }
+  let currentEngineStateA = { pity: clamp(pityEngineA, 0, 9), guaranteed: Boolean(guaranteedEngineA) }
 
   // Track budget flow
   // Start of Phase 0 is pullsOnHand.
@@ -372,7 +363,7 @@ export function computePlan(
   for (let i = 0; i < ranges.length; i++) {
     const range = ranges[i]
     const targets = targetsByPhase[i]
-    const income = incomes[i] ?? 0
+    const income = getIncome(range)
 
     // Budget for this phase
     // Phase[i] Start Budget = (i==0) ? PullsOnHand : Phase[i-1].carryToNextPhaseEnd
@@ -461,9 +452,8 @@ export function computePlan(
 
       if (funded) {
         remainingEnd = newRemainingEnd
-        if (affordableStart) {
+        if (affordableStart)
           remainingStart = newRemainingStart
-        }
 
         if (isAgent) {
           spentAgents += cost

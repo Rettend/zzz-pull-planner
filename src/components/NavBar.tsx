@@ -1,10 +1,10 @@
 import { A, useLocation } from '@solidjs/router'
 import { For } from 'solid-js'
 
-const NAV_ITEMS = [
+const NAV_ITEMS: { href: string, label: string; disabled?: boolean }[] = [
   { href: '/', label: 'Home' },
   { href: '/guide', label: 'Guide' },
-  { href: '/history', label: 'History', disabled: true },
+  { href: '/history', label: 'History' },
   { href: '/about', label: 'About' },
 ]
 

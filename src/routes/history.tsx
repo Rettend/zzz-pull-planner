@@ -1,6 +1,9 @@
 import type { ParentProps } from 'solid-js'
 import { A } from '@solidjs/router'
-import { For } from 'solid-js'
+import { createSignal, For, Show } from 'solid-js'
+import { ImportHistoryModal } from '~/components/ImportHistoryModal'
+import { Button } from '~/components/ui/button'
+import { usePullHistory } from '~/stores/pullHistory'
 
 const TABS = [
   { href: '/history/exclusive', label: 'Exclusive Channel' },
@@ -10,17 +13,33 @@ const TABS = [
 ]
 
 export default function HistoryLayout(props: ParentProps) {
+  const [importModalOpen, setImportModalOpen] = createSignal(false)
+  const pullHistory = usePullHistory()
+
   return (
     <div class="flex flex-col gap-6">
       <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 class="text-2xl text-white font-bold">Pull History</h1>
-        <button
-          class="text-sm text-white font-medium px-4 py-2 rounded-lg bg-emerald-600 transition-colors hover:bg-emerald-500"
-          // eslint-disable-next-line no-console
-          onClick={() => console.log('Import feature coming soon!')}
-        >
-          Import Data
-        </button>
+        <div class="flex gap-3 items-center">
+          <h1 class="text-2xl text-white font-bold">Pull History</h1>
+          <Show when={pullHistory.hasData()}>
+            <span class="text-xs text-emerald-400 font-medium px-2 py-1 rounded-full bg-emerald-500/20">
+              <i class="i-ph:check-bold mr-1" />
+              Imported
+            </span>
+          </Show>
+        </div>
+        <div class="flex gap-2">
+          <Show when={pullHistory.hasData()}>
+            <Button onClick={() => pullHistory.clearData()}>
+              <i class="i-ph:trash-bold mr-1" />
+              Clear Data
+            </Button>
+          </Show>
+          <Button variant="green" onClick={() => setImportModalOpen(true)}>
+            <i class="i-ph:download-simple-bold mr-1" />
+            {pullHistory.hasData() ? 'Re-import' : 'Import Data'}
+          </Button>
+        </div>
       </div>
 
       <div class="border-b border-zinc-800">
@@ -43,6 +62,11 @@ export default function HistoryLayout(props: ParentProps) {
       <div class="min-h-[500px]">
         {props.children}
       </div>
+
+      <ImportHistoryModal
+        open={importModalOpen()}
+        onClose={() => setImportModalOpen(false)}
+      />
     </div>
   )
 }
