@@ -19,8 +19,10 @@ export async function useDb() {
   }
 
   const event = getRequestEvent()
-  if (!event)
-    throw new Error('useDb must be called within a request handler')
+  if (!event) {
+    console.warn('useDb: No request context')
+    return undefined
+  }
 
   const db = event.nativeEvent.context.cloudflare?.env?.DB
   if (!db) {

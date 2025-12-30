@@ -7,8 +7,11 @@ export default createMiddleware({
   onRequest: [
     async (event) => {
       const db = await useDb()
-      if (!db)
+      if (!db) {
+        // @ts-expect-error idk, for prerendering
+        event.locals.getSession = async () => null
         return
+      }
 
       const auth = await useAuth()
 

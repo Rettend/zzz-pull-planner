@@ -16,7 +16,6 @@ export default function App() {
   return (
     <Router
       root={(props) => {
-        // Load ALL async data at route level - this is the SSR-safe pattern
         const session = createAsync(() => getSession(), { deferStream: true })
         const gameData = createAsync(() => getGameData(), { deferStream: true })
         const profiles = createAsync(() => getProfiles(), { deferStream: true })
