@@ -6,6 +6,8 @@
 [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12; Invoke-Expression (New-Object Net.WebClient).DownloadString("https://zzz.rng.moe/scripts/get_signal_link_os.ps1")
 ```
 
+<https://zzz.rng.moe/scripts/get_signal_link_os.ps1> is this:
+
 ```powershell
 # Copyright 2024 Star Rail Station
 #
