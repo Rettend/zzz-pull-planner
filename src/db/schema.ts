@@ -164,9 +164,9 @@ export type NewBannerTarget = typeof bannerTargets.$inferInsert
 
 export const scrapeRuns = sqliteTable('scrape_runs', {
   id: integer().primaryKey({ autoIncrement: true }),
-  startedAt: integer().notNull(),
-  finishedAt: integer(),
-  status: text({ enum: ['success', 'failed', 'skipped'] }).notNull(),
+  startedAt: integer({ mode: 'timestamp' }).notNull(),
+  finishedAt: integer({ mode: 'timestamp' }),
+  status: text({ enum: ['running', 'success', 'failed', 'skipped'] }).notNull(),
   message: text(),
   diffJson: text(),
 })

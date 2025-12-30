@@ -7,7 +7,7 @@ import { scrapeBanners } from '../src/worker/scraper/index'
 console.log('Seeding local database...')
 
 const sqlite = new Database('drizzle/local.db')
-const db = drizzle(sqlite)
+const db = drizzle(sqlite, { casing: 'snake_case' })
 
 try {
   const result = await scrapeBanners(db, undefined)

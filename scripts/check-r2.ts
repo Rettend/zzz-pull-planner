@@ -25,7 +25,7 @@ async function main() {
   console.log('Checking R2 files against local DB...')
 
   const sqlite = new Database('drizzle/local.db')
-  const db = drizzle(sqlite)
+  const db = drizzle(sqlite, { casing: 'snake_case' })
 
   const allTargets = await db.select().from(targets)
   const expectedFiles = allTargets

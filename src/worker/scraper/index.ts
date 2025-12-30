@@ -145,7 +145,7 @@ export async function scrapeBanners(db: any, r2?: R2Bucket, force = false) {
         await db.insert(attributes).values({
           id: attr.name,
           iconPath,
-          updatedAt: Math.floor(Date.now() / 1000),
+          updatedAt: new Date(),
         }).onConflictDoUpdate({
           target: attributes.id,
           set: {
@@ -178,7 +178,7 @@ export async function scrapeBanners(db: any, r2?: R2Bucket, force = false) {
         await db.insert(specialties).values({
           id: spec.name,
           iconPath,
-          updatedAt: Math.floor(Date.now() / 1000),
+          updatedAt: new Date(),
         }).onConflictDoUpdate({
           target: specialties.id,
           set: {
@@ -215,7 +215,7 @@ export async function scrapeBanners(db: any, r2?: R2Bucket, force = false) {
           startUtc: banner.startUtc,
           endUtc: banner.endUtc,
           version: banner.version,
-          updatedAt: Math.floor(Date.now() / 1000), // Always update timestamp (seconds)
+          updatedAt: new Date(),
         }
 
         let needsUpdate = false
@@ -287,7 +287,7 @@ export async function scrapeBanners(db: any, r2?: R2Bucket, force = false) {
             attribute,
             specialty,
             iconPath,
-            updatedAt: Math.floor(Date.now() / 1000),
+            updatedAt: new Date(),
           })
 
           bannerTargetsToInsert.push({
@@ -387,7 +387,7 @@ export async function scrapeBanners(db: any, r2?: R2Bucket, force = false) {
 
 async function logRunStart(db: any) {
   const result = await db.insert(scrapeRuns).values({
-    startedAt: Date.now(),
+    startedAt: new Date(),
     status: 'running',
   }).returning({ id: scrapeRuns.id }).get()
   return result.id
@@ -395,7 +395,7 @@ async function logRunStart(db: any) {
 
 async function logRunFinish(db: any, id: number, status: 'success' | 'failed', message: string) {
   await db.update(scrapeRuns).set({
-    finishedAt: Date.now(),
+    finishedAt: new Date(),
     status,
     message,
   }).where(eq(scrapeRuns.id, id)).execute()
