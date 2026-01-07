@@ -92,9 +92,9 @@ export default function About() {
               <div>
                 I have a
                 {' '}
-                <ExternalLink href="https://discord.gg/FvVaUPhj3t" class="text-emerald-400 underline underline-offset-2">Discord</ExternalLink>
+                <ExternalLink href="https://discord.gg/apSNhhhHAs" class="text-emerald-400 underline underline-offset-2">Discord</ExternalLink>
                 {' '}
-                server, any feedback is welcome!
+                server, feel free to join simply to chat!
               </div>
             </li>
           </ul>

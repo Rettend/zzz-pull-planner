@@ -1,5 +1,10 @@
 import { drizzle } from 'drizzle-orm/d1'
+import * as schema from '../db/schema'
 import { scrapeBanners } from './scraper/index'
+
+function useDb(d1: D1Database) {
+  return drizzle(d1, { schema, casing: 'snake_case' })
+}
 
 export default {
   async scheduled(event: ScheduledEvent, env: any, ctx: ExecutionContext) {
@@ -7,7 +12,7 @@ export default {
       ctx.waitUntil(
         (async () => {
           try {
-            const db = drizzle(env.DB)
+            const db = useDb(env.DB)
             await scrapeBanners(db, env.ASSETS_BUCKET)
           }
           catch (e) {
@@ -31,7 +36,7 @@ export default {
         return new Response('Unauthorized', { status: 401 })
 
       const force = url.searchParams.get('force') === 'true'
-      const db = drizzle(env.DB)
+      const db = useDb(env.DB)
       const result = await scrapeBanners(db, env.ASSETS_BUCKET, force)
       return new Response(JSON.stringify(result), { headers: { 'content-type': 'application/json' } })
     }
