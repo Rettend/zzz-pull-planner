@@ -21,7 +21,7 @@ export function Header() {
 
           <div class="flex gap-4 items-center">
             <ExternalLink
-              href="https://discord.gg/FvVaUPhj3t"
+              href="https://discord.gg/apSNhhhHAs"
               class="text-zinc-500"
               title="Join Discord"
             >
